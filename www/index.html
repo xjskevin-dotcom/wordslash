@@ -1767,6 +1767,31 @@ function startTimer(sec, barId, onTimeout, keep){
 }
 function stopTimer(){ if(timerH){clearInterval(timerH); timerH=null;} }
 
+/* 把英文释义里的目标词挖空，避免泄题 */
+function maskWord(text, word){
+  if(!text) return '';
+  const w=String(word||'').replace(/[^a-zA-Z]/g,'');
+  if(!w) return text;
+  const stem=w.replace(/(ing|ed|es|s|ly)$/,'');
+  const pat=stem.length>=3? stem : w;
+  try{ return text.replace(new RegExp('\\b'+pat+'[a-z]*\\b','ig'),'▁▁▁'); }
+  catch(e){ return text; }
+}
+/* 题面提示块：不泄题的直接给，会泄题的收进💡按钮 */
+function qMeanHTML(w, level){
+  /* level: 'full' 图+中文+英文(遮蔽) | 'def' 只给遮蔽英文 | 'hidden' 收进按钮 */
+  const fig='<div style="margin-bottom:2px">'+wordFig(w,40)+'</div>';
+  const cn='<div class="qcn" style="font-size:15px">'+(w.cn||'').split(String.fromCharCode(10)).slice(0,2).join('<br>')+'</div>';
+  const df=w.def? '<div class="mdef" style="margin-top:8px;font-size:13px">📖 '+maskWord(w.def,w.w)+'</div>':'';
+  if(level==='full') return fig+cn+df;
+  if(level==='def')  return fig+df;
+  return '<div id="qhintbox"><button class="tipbtn mini" onclick="revealQHint()">💡 看提示（不扣分）</button></div>'+
+         '<div id="qhintdata" style="display:none">'+cn+df+'</div>';
+}
+function revealQHint(){
+  const d=$('qhintdata'), b=$('qhintbox');
+  if(d&&b){ b.innerHTML=d.innerHTML; }
+}
 function showQ(){
   const q=Q.list[Q.idx];
   if(!q) return endQuiz(true);
@@ -1779,16 +1804,17 @@ function showQ(){
   if(q.dir==='listen'){
     sr.style.display='flex';
     c.innerHTML=`<div style="font-size:52px;line-height:1.2;cursor:pointer" onclick="speak('${q.w.w.replace(/'/g,"\\'")}')">🔊</div>
-      <div class="qhint">👂 纯听力 · 只听发音，把单词拼出来（${q.w.w.replace(/[^a-zA-Z]/g,'').length} 个字母）</div>
-      <div><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}')">🔈 再听</span><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}',true)">🐢 慢速</span></div>${retag}`;
+      <div class="qhint">👂 听发音拼出单词（${q.w.w.replace(/[^a-zA-Z]/g,'').length} 个字母）</div>
+      <div><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}')">🔈 再听</span><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}',true)">🐢 慢速</span></div>
+      ${qMeanHTML(q.w,'full')}${retag}`;
     const inp=$('qspellin'); inp.value=''; inp.disabled=false; inp.classList.remove('flashwrong');
     setTimeout(()=>{ try{inp.focus();}catch(e){} },60);
     speak(q.w.w);
   }else if(q.dir==='spell'){
     sr.style.display='flex';
-    const semo=wordEmo(q.w);
-    c.innerHTML=`${semo?`<div style="font-size:44px;line-height:1.1">${semo}</div>`:''}<div class="qcn">${cnShort(q.w.cn)}</div>
+    c.innerHTML=`<div>${wordFig(q.w,44)}</div><div class="qcn">${(q.w.cn||'').split(String.fromCharCode(10)).slice(0,2).join('<br>')}</div>
       <div class="qphon">${q.w.p?'/'+q.w.p+'/':''}</div>
+      ${q.w.def?`<div class="mdef" style="margin-top:8px;font-size:13px">📖 ${maskWord(q.w.def,q.w.w)}</div>`:''}
       <div class="qhint">✍️ 听发音拼出单词（${q.w.w.replace(/[^a-zA-Z]/g,'').length} 个字母）</div>
       <div><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}')">🔈 再听</span><span class="spkbtn" onclick="speak('${q.w.w.replace(/'/g,"\\'")}',true)">🐢 慢速</span></div>${retag}`;
     const inp=$('qspellin'); inp.value=''; inp.disabled=false; inp.classList.remove('flashwrong');
@@ -1797,7 +1823,8 @@ function showQ(){
   }else if(q.dir==='cloze'){
     sr.style.display='none';
     c.innerHTML=`<div class="qhint" style="color:var(--gold);font-weight:700">📖 完形填空 · 选出填入空格的词</div>
-      <div style="font-size:19px;line-height:1.7;margin:12px 4px;text-align:left">${q.sent}</div>${retag}`;
+      <div style="font-size:19px;line-height:1.7;margin:12px 4px;text-align:left">${q.sent}</div>
+      ${qMeanHTML(q.w,'def')}${retag}`;
     q.opts.forEach(op=>{
       const b=document.createElement('button'); b.className='opt'; b.textContent=op.w;
       b.onclick=()=>answer(op,b); o.appendChild(b);
@@ -1806,7 +1833,8 @@ function showQ(){
     sr.style.display='none';
     c.innerHTML=`<div class="qhint" style="color:var(--gold);font-weight:700">📖 句意理解 · 这句话在说什么？</div>
       <div style="font-size:19px;line-height:1.7;margin:12px 4px;text-align:left">${q.w.ex}</div>
-      <div><span class="spkbtn" onclick="speak('${(q.w.ex||'').replace(/'/g,"\\'")}')">🔈 朗读句子</span></div>${retag}`;
+      <div><span class="spkbtn" onclick="speak('${(q.w.ex||'').replace(/'/g,"\\'")}')">🔈 朗读句子</span></div>
+      ${qMeanHTML(q.w,'hidden')}${retag}`;
     q.opts.forEach(op=>{
       const b=document.createElement('button'); b.className='opt'; b.textContent=cnShort(op.cn);
       b.onclick=()=>answer(op,b); o.appendChild(b);
@@ -1814,7 +1842,8 @@ function showQ(){
   }else if(q.dir==='w2c'){
     sr.style.display='none';
     c.innerHTML=`<div class="qword">${q.w.w}<span class="spk" onclick="speak('${q.w.w.replace(/'/g,"\\'")}')">🔈</span><span class="spk" onclick="speak('${q.w.w.replace(/'/g,"\\'")}',true)">🐢</span></div>
-      <div class="qphon">${q.w.p?'/'+q.w.p+'/':''}</div><div class="qhint">选出正确的中文释义</div>${retag}`;
+      <div class="qphon">${q.w.p?'/'+q.w.p+'/':''}</div><div class="qhint">选出正确的中文释义</div>
+      ${q.w.def?`<div class="mdef" style="margin-top:8px;font-size:13px">📖 ${maskWord(q.w.def,q.w.w)}</div>`:''}${retag}`;
     q.opts.forEach(op=>{
       const b=document.createElement('button'); b.className='opt'; b.textContent=cnShort(op.cn);
       b.onclick=()=>answer(op,b); o.appendChild(b);
@@ -1822,8 +1851,9 @@ function showQ(){
     speak(q.w.w);
   }else{
     sr.style.display='none';
-    const qemo=wordEmo(q.w);
-    c.innerHTML=`${qemo?`<div style="font-size:44px;line-height:1.1">${qemo}</div>`:''}<div class="qcn">${cnShort(q.w.cn)}</div><div class="qhint">选出对应的英文单词</div>${retag}`;
+    c.innerHTML=`<div>${wordFig(q.w,44)}</div><div class="qcn">${(q.w.cn||'').split(String.fromCharCode(10)).slice(0,2).join('<br>')}</div>
+      ${q.w.def?`<div class="mdef" style="margin-top:8px;font-size:13px">📖 ${maskWord(q.w.def,q.w.w)}</div>`:''}
+      <div class="qhint">选出对应的英文单词</div>${retag}`;
     q.opts.forEach(op=>{
       const b=document.createElement('button'); b.className='opt'; b.textContent=op.w;
       b.onclick=()=>answer(op,b); o.appendChild(b);
