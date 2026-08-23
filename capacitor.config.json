@@ -1,0 +1,9 @@
+{
+  "appId": "com.wordslash.app",
+  "appName": "万词斩",
+  "webDir": "www",
+  "backgroundColor": "#0f1226",
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_icon", "iconColor": "#7c5cff" }
+  }
+}

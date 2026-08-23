@@ -1,0 +1,18 @@
+{
+  "name": "万词斩 · WordSlash",
+  "short_name": "万词斩",
+  "description": "像打游戏一样斩完一万单词 · 艾宾浩斯计划 · 闯关逃生 · 真题练习 · 跟读打分",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1226",
+  "theme_color": "#0f1226",
+  "lang": "zh-CN",
+  "categories": ["education","games"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "wordslash",
+  "version": "1.0.0",
+  "description": "万词斩 WordSlash - 背单词闯关 App",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android",
+    "add:android": "cap add android",
+    "open:android": "cap open android"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/local-notifications": "^6.1.0",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.1"
+  }
+}
