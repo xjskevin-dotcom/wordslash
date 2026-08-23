@@ -1,6 +1,6 @@
 {
-  "name": "万词斩 · WordSlash",
-  "short_name": "万词斩",
+  "name": "千词万斩 · WordSlash",
+  "short_name": "千词万斩",
   "description": "像打游戏一样斩完一万单词 · 艾宾浩斯计划 · 闯关逃生 · 真题练习 · 跟读打分",
   "start_url": "./index.html",
   "scope": "./",

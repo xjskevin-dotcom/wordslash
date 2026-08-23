@@ -1,7 +1,7 @@
 {
   "name": "wordslash",
   "version": "1.0.0",
-  "description": "万词斩 WordSlash - 背单词闯关 App",
+  "description": "千词万斩 WordSlash - 背单词闯关 App",
   "private": true,
   "scripts": {
     "sync": "cap sync android",

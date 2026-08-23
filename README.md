@@ -1,4 +1,4 @@
-# 万词斩 · WordSlash
+# 千词万斩 · WordSlash
 
 背单词闯关 App。整份应用是一个自包含 HTML（含 3600 词、585 道真题、全部玩法），用 Capacitor 套壳成安卓 App，用 GitHub Actions 自动出 APK——**你不需要安装 Android Studio**。
 
@@ -20,8 +20,8 @@ wordslash-app/
 1. 在 GitHub 新建一个仓库（可设为私有）
 2. 把 `wordslash-app` 里的**全部文件**上传上去（包含 `.github` 文件夹）
 3. 进仓库 **Actions** 标签页 → 左侧「Build Android APK」→ 右上 **Run workflow**
-4. 等 3~5 分钟，构建完成后在该次运行页面底部 **Artifacts** 下载 `万词斩-APK`
-5. 解压得到 `万词斩-v1.0.apk`，传到手机安装（首次需允许「未知来源」）
+4. 等 3~5 分钟，构建完成后在该次运行页面底部 **Artifacts** 下载 `千词万斩-APK`
+5. 解压得到 `千词万斩-v1.0.apk`，传到手机安装（首次需允许「未知来源」）
 
 > 打 tag 会自动发布到 Releases：`git tag v1.0 && git push --tags`，
 > 之后 APK 直接挂在仓库 Releases 页，把那个下载链接放到你官网即可。

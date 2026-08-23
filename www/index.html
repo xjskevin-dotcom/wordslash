@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="万词斩">
+<meta name="apple-mobile-web-app-title" content="千词万斩">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="icon" href="./icon-192.png">
-<title>万词斩 · WordSlash</title>
+<title>千词万斩 · WordSlash</title>
 <style>
 :root{
   --bg:#0f1226; --card:#1c2144; --card2:#252b57; --txt:#eef0ff; --sub:#9aa2d8;
@@ -289,8 +289,8 @@ body{padding-top:env(safe-area-inset-top);}
 <div class="screen" id="s-login">
   <div style="text-align:center;padding:34px 0 14px">
     <div style="font-size:60px">⚔️</div>
-    <h1 style="font-size:32px;margin:8px 0 2px">万词斩</h1>
-    <div class="tagline">WordSlash · 像打游戏一样，斩完一万单词</div>
+    <h1 style="font-size:32px;margin:8px 0 2px">千词万斩</h1>
+    <div class="tagline">WordSlash · 千词入阵，万斩通关</div>
   </div>
   <div id="loginbody"></div>
 </div>
@@ -1094,7 +1094,7 @@ function renderMe(){
     '<div class="sect">数据</div><div class="bookcard" style="display:block;cursor:default">'+
       '<div class="rowline" onclick="openProgressCode()"><div>🔑 进度码（备份 / 换机）</div><div style="color:var(--sub)">›</div></div>'+
       '<div class="rowline" onclick="clearImgCache()"><div>🧹 清空配图缓存</div><div style="color:var(--sub)">›</div></div>'+
-      '<div class="rowline" onclick="alert(\'万词斩 WordSlash v1.0\\n本地运行 · 不联网 · 不收集任何数据\\n词库与真题来自公开数据集\')"><div>ℹ️ 关于</div><div style="color:var(--sub)">v1.0</div></div>'+
+      '<div class="rowline" onclick="alert(\'千词万斩 WordSlash v1.0\\n本地运行 · 不联网 · 不收集任何数据\\n词库与真题来自公开数据集\')"><div>ℹ️ 关于</div><div style="color:var(--sub)">v1.0</div></div>'+
     '</div>';
 }
 function openRangeFromMe(){ openPlan(); }
@@ -4480,7 +4480,7 @@ function openLeaderboard(){
 }
 function shareMyPk(){
   const code=pkCode();
-  const txt='我在「万词斩」已掌握 '+myPkStats().w+' 个单词，连续打卡 '+S.streak.cur+' 天！我的战绩码：\n'+code+'\n（复制到万词斩「好友榜→添加好友」即可 PK）';
+  const txt='我在「千词万斩」已掌握 '+myPkStats().w+' 个单词，连续打卡 '+S.streak.cur+' 天！我的战绩码：\n'+code+'\n（复制到千词万斩「好友榜→添加好友」即可 PK）';
   if(navigator.share){ navigator.share({text:txt}).catch(()=>{}); }
   else{ copyText(code); toast('战绩码已复制，去发给同学吧'); }
 }
@@ -4515,7 +4515,7 @@ async function scheduleRemind(){
       await LN.cancel({notifications:[{id:1001}]});
       if(!S.remindOn) return;
       const [hh,mm]=S.remindAt.split(':').map(Number);
-      await LN.schedule({notifications:[{id:1001,title:'万词斩 ⚔️',body:'该背单词啦，到期的词正等着你复习 📚',schedule:{on:{hour:hh,minute:mm},repeats:true}}]});
+      await LN.schedule({notifications:[{id:1001,title:'千词万斩 ⚔️',body:'该背单词啦，到期的词正等着你复习 📚',schedule:{on:{hour:hh,minute:mm},repeats:true}}]});
     }
   }catch(e){}
 }
@@ -4538,7 +4538,7 @@ function openProgressCode(){
 }
 function downloadCode(){
   const blob=new Blob([exportCode()],{type:'text/plain'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='万词斩进度码.txt'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='千词万斩进度码.txt'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 function doImportCode(){
