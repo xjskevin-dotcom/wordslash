@@ -5,6 +5,9 @@ on:
   push:
     tags: ['v*']                 # 打 tag(如 v1.0)自动出包
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
