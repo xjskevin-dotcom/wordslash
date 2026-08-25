@@ -270,6 +270,18 @@ body{padding-top:env(safe-area-inset-top);}
 .bub.me .zh{color:rgba(255,255,255,.8);}
 .dlgtask{background:rgba(255,201,60,.12);border:1px solid var(--gold);border-radius:12px;padding:10px 13px;font-size:14px;margin:8px 0;}
 .dlgtask b{color:var(--gold);}
+.rangebar{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;background:#141838;border-top:1px solid #2e3568;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;z-index:50;}
+.rangebar .sum{flex:1;font-size:13px;color:var(--sub);line-height:1.4;}
+.rangebar .sum b{color:var(--acc2);font-size:15px;}
+#s-range{padding-bottom:86px;}
+.ubtn{background:var(--card);border:1px solid #2e3568;border-radius:12px;aspect-ratio:1.35;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:600;transition:transform .08s,background .15s;position:relative;user-select:none;}
+.ubtn:active{transform:scale(.93);}
+.ubtn.on{background:#13372c;border-color:var(--acc2);color:#fff;}
+.ubtn .ud{font-size:9px;color:var(--sub);margin-top:2px;}
+.ubtn.on .ud{color:var(--acc2);}
+.ubtn .tick{position:absolute;top:3px;right:5px;font-size:10px;color:var(--acc2);}
+.bkrow{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;}
+.bkrow button{flex:0 0 auto;}
 </style>
 </head>
 <body>
@@ -308,6 +320,15 @@ body{padding-top:env(safe-area-inset-top);}
     <div class="tabitem" data-t="practice" onclick="showTab('practice')"><div class="ti">🎯</div><div class="tl">练习</div></div>
     <div class="tabitem" data-t="me" onclick="showTab('me')"><div class="ti">👤</div><div class="tl">我的</div></div>
   </div>
+</div>
+
+<!-- RANGE 学习范围 -->
+<div class="screen" id="s-range">
+  <span class="back" onclick="closeRange()">← 返回</span>
+  <h1>📍 学习范围</h1>
+  <div class="tagline">选中哪几课，今天就学哪几课的词 · 不选＝全书按顺序来</div>
+  <div id="rangebody"></div>
+  <div class="rangebar" id="rangebar"></div>
 </div>
 
 <!-- PLAN -->
@@ -926,7 +947,8 @@ function speak(w,slow){
 }
 
 /* ================= 导航/通用 ================= */
-function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); window.scrollTo(0,0); document.body.classList.toggle('inplay', id!=='s-home'&&id!=='s-login'); }
+let CURSCR='s-home';
+function go(id){ CURSCR=id; document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); window.scrollTo(0,0); document.body.classList.toggle('inplay', id!=='s-home'&&id!=='s-login'); }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',2200); }
 function fly(txt, el, red){
   try{
@@ -998,7 +1020,7 @@ function renderLearn(){
       '</div>'+
       '<button class="btn green" style="width:100%;font-size:18px" onclick="startPlan()">▶ '+(used>0?'继续学习':'开始今日学习')+'</button>'+
     '</div>'+
-    '<div class="bookcard" style="cursor:pointer" onclick="showTab(\'me\');setTimeout(openRangeFromMe,50)"><div style="flex:1">'+
+    '<div class="bookcard" style="cursor:pointer" onclick="openRange()"><div style="flex:1">'+
       '<div class="bt" style="font-size:15px">📍 学习范围</div><div class="bs">'+(r?rangeText():'全书顺序（学完自动往后）')+'</div></div><div style="color:var(--acc2)">改 ›</div></div>'+
     '<div class="bookcard" style="display:block;cursor:default"><div class="bt" style="font-size:15px">本周打卡</div><div class="cal">'+cal+'</div></div>'+
     '<div class="bookcard" style="display:block;cursor:default"><div class="bt" style="font-size:15px">📈 掌握进度</div>'+
@@ -1097,7 +1119,7 @@ function renderMe(){
       '<div class="rowline" onclick="alert(\'千词万斩 WordSlash v1.0\\n本地运行 · 不联网 · 不收集任何数据\\n词库与真题来自公开数据集\')"><div>ℹ️ 关于</div><div style="color:var(--sub)">v1.0</div></div>'+
     '</div>';
 }
-function openRangeFromMe(){ openPlan(); }
+function openRangeFromMe(){ openRange(); }
 function toggleNetImg(){
   S.netImg=!S.netImg; save();
   if(S.netImg) toast('🖼️ 已开启：具体名词会联网加载照片，看过的图会缓存；断网自动用图标');
@@ -3602,28 +3624,89 @@ function toggleUnit(b,u){
   const k=b+'-'+u, i=cur.indexOf(k);
   if(i>=0) cur.splice(i,1); else cur.push(k);
   S.planRange={dict:DICT.id, sel:cur, book:b};
-  save(); openPlan();
+  save(); refreshRangeUI();
 }
 function selAllBook(b){
   const cur=(S.planRange&&S.planRange.dict===DICT.id)? (S.planRange.sel||[]).slice() : [];
   const all=[]; for(let u=1;u<=unitsIn(b);u++) all.push(b+'-'+u);
   const has=all.every(k=>cur.indexOf(k)>=0);
   const next= has? cur.filter(k=>all.indexOf(k)<0) : cur.concat(all.filter(k=>cur.indexOf(k)<0));
-  S.planRange={dict:DICT.id, sel:next, book:b}; save(); openPlan();
+  S.planRange={dict:DICT.id, sel:next, book:b}; save(); refreshRangeUI();
   toast(has? '已取消 Book '+b : '已全选 Book '+b);
 }
 function selFrom(b,u){
   const cur=(S.planRange&&S.planRange.dict===DICT.id)? (S.planRange.sel||[]).slice() : [];
   for(let x=u;x<=unitsIn(b);x++){ const k=b+'-'+x; if(cur.indexOf(k)<0) cur.push(k); }
-  S.planRange={dict:DICT.id, sel:cur, book:b}; save(); openPlan();
+  S.planRange={dict:DICT.id, sel:cur, book:b}; save(); refreshRangeUI();
   toast('已选 Book '+b+' 第 '+u+' 课到本册末尾');
 }
-function clearRange(){ S.planRange=null; save(); openPlan(); toast('↩️ 已恢复全书顺序'); }
+function clearRange(){ S.planRange=null; save(); refreshRangeUI(); toast('↩️ 已恢复全书顺序'); }
 function newWords(n){
   const sw=selWords(), out=[];
   if(sw){ for(const w of sw){ if(!S.srs[srsKey(w.w)]){ out.push(w); if(out.length>=n) break; } } return out; }
   for(const w of DICT.words){ if(!S.srs[srsKey(w.w)]){ out.push(w); if(out.length>=n) break; } }
   return out;
+}
+function rangeStats(b,u){
+  const ws=unitWords(b,u); let known=0;
+  for(const w of ws) if(S.srs[srsKey(w.w)]) known++;
+  return {n:ws.length, known};
+}
+function renderRangeFull(){
+  const r=planRange();
+  const sel=new Set(r? r.sel:[]);
+  const cb=(S.planRange&&S.planRange.dict===DICT.id&&S.planRange.book)? Math.min(S.planRange.book,NBOOKS) : 1;
+  let html='<div class="bs" style="margin:2px 0 6px">📕 '+DICT.name+'</div><div class="bkrow">';
+  for(let b=1;b<=NBOOKS;b++){
+    let n=0; for(let u=1;u<=unitsIn(b);u++) if(sel.has(b+'-'+u)) n++;
+    html+='<button class="btn small '+(b===cb?'':'ghost')+'" onclick="pickBook('+b+')">Book '+b+(n?' ·'+n:'')+'</button>';
+  }
+  html+='</div>';
+  html+='<div class="units" style="grid-template-columns:repeat(5,1fr);gap:8px">';
+  for(let u=1;u<=unitsIn(cb);u++){
+    const on=sel.has(cb+'-'+u), st=rangeStats(cb,u);
+    const pct=st.n? Math.round(st.known/st.n*100):0;
+    html+='<div class="ubtn'+(on?' on':'')+'" onclick="toggleUnit('+cb+','+u+')">'+
+      (on?'<span class="tick">✓</span>':'')+
+      '<span>'+u+'</span><span class="ud">'+(pct>=100?'已学完':pct>0?pct+'%':st.n+'词')+'</span></div>';
+  }
+  html+='</div>';
+  html+='<div class="rowbtns" style="margin-top:12px;flex-wrap:wrap">'+
+    '<button class="btn small ghost" onclick="selAllBook('+cb+')">☑️ 全选本册</button>'+
+    (r&&r.book===cb? '<button class="btn small ghost" onclick="selFrom('+cb+','+r.unit+')">➡️ 第'+r.unit+'课到末尾</button>':'')+
+    '<button class="btn small ghost" onclick="selUnlearned('+cb+')">🆕 只选没学的</button>'+
+    (r? '<button class="btn small ghost" onclick="clearRange()">↩️ 清空</button>':'')+
+    '</div>';
+  return html;
+}
+function renderRangeBar(){
+  const r=planRange(), ws=selWords();
+  const n=r? r.sel.length:0, wn=ws? ws.length:0;
+  return '<div class="sum">'+(n? '已选 <b>'+n+'</b> 课 · <b>'+wn+'</b> 词':'未选 · 将按<b>全书顺序</b>学习')+'</div>'+
+    (n? '<button class="btn small green" onclick="closeRange()">✓ 用这些课</button>'
+      : '<button class="btn small ghost" onclick="closeRange()">直接返回</button>');
+}
+function openRange(){ go('s-range'); refreshRangeUI(); }
+function closeRange(){ go('s-home'); showTab('learn'); }
+function refreshRangeUI(){
+  if(CURSCR==='s-range'){
+    $('rangebody').innerHTML=renderRangeFull();
+    $('rangebar').innerHTML=renderRangeBar();
+    return;
+  }
+  let y=0; try{ y=window.scrollY||window.pageYOffset||0; }catch(e){}
+  openPlan();
+  try{ window.scrollTo(0,y); }catch(e){}
+}
+function selUnlearned(b){
+  const cur=(S.planRange&&S.planRange.dict===DICT.id)? (S.planRange.sel||[]).slice() : [];
+  let added=0;
+  for(let u=1;u<=unitsIn(b);u++){
+    const st=rangeStats(b,u);
+    if(st.known<st.n){ const k=b+'-'+u; if(cur.indexOf(k)<0){ cur.push(k); added++; } }
+  }
+  S.planRange={dict:DICT.id, sel:cur, book:b}; save(); refreshRangeUI();
+  toast(added? '已加入 '+added+' 课没学完的':'这一册都学完了');
 }
 function renderRangePicker(){
   const r=planRange();
@@ -3651,7 +3734,7 @@ function renderRangePicker(){
 function pickBook(b){
   const cur=(S.planRange&&S.planRange.dict===DICT.id)? (S.planRange.sel||[]) : [];
   S.planRange={dict:DICT.id, sel:cur, book:b};
-  save(); openPlan();
+  save(); refreshRangeUI();
 }
 
 function learnedCount(){ let c=0; for(const w of DICT.words) if(S.srs[srsKey(w.w)]) c++; return c; }
@@ -3700,8 +3783,8 @@ function openPlan(){
     </div>
     <div class="bookcard" style="cursor:default;display:block">
       <div class="bt">📍 学习范围：${rangeText()}</div>
-      <div class="bs" style="margin-top:4px">点课号可多选（再点取消）· 选中的课决定今天学什么、考什么</div>
-      ${renderRangePicker()}
+      <div class="bs" style="margin-top:4px">选中的课决定今天学什么、考什么</div>
+      <div class="rowbtns" style="margin-top:10px"><button class="btn small green" onclick="openRange()">📍 挑选课时 ›</button></div>
     </div>
     <div class="bookcard" style="cursor:default">
       <div style="flex:1">
