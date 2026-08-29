@@ -2565,7 +2565,7 @@ function startMini(itemIdx, done){
   if(type==='timing'){
     MG.center=32+Math.random()*36; MG.pos=0; MG.dir=1;
     MG.item=it[0]; MG.locked=false; MG.winT=0; MG.failT=0;
-    MG.scn = MGS[(E?E.i:0)+'-'+itemIdx] || {bg:'🚪',tc:'🔒',to:'🔓'};
+    MG.scn = MGS[escArt(E?E.i:0)+'-'+itemIdx] || {bg:'🚪',tc:'🔒',to:'🔓'};
     $('mgcard').innerHTML=head+
       `<canvas id="mgscene" style="display:block;margin:10px auto 0;max-width:100%"></canvas>
       <div class="mgbar"><div class="mgzone" style="left:${(MG.center-11).toFixed(1)}%;width:22%"></div><div class="mgmark" id="mgmark" style="left:0%"></div></div>
@@ -2985,12 +2985,12 @@ const CHASE=[
 ];
 let CS=null, csRAF=0, csSnd=null;
 function playChase(opt, done){
-  const cfg=CHASE[(E? E.i : 0)%CHASE.length];
+  const cfg=CHASE[escArt(E? E.i : 0)];
   const cv=$('cscanvas');
   cv.width=innerWidth; cv.height=innerHeight;
   $('cutscene').style.display='block';
   $('cscaption').textContent = opt.mode==='win'? '🌅 出口就在前面——冲出去！！你自由了！！'
-    : opt.mode==='fail'? '⏳ 脚步声越来越近……你被追上了……' : cfg.cap;
+    : opt.mode==='fail'? '⏳ 脚步声越来越近……你被追上了……' : escCap(E? E.i : 0);
   CS={t:0, dur: opt.mode==='fail'? 200: 260, opt, cfg, done, bgs:[], fars:[], ps:[], c:cv.getContext('2d')};
   for(let k=0;k<6;k++) CS.bgs.push({x:Math.random()*cv.width, e:cfg.bg[k%cfg.bg.length], s:34+Math.random()*30});
   for(let k=0;k<5;k++) CS.fars.push({x:Math.random()*cv.width, e:cfg.far[k%cfg.far.length], s:18+Math.random()*14, y:.28+Math.random()*.25});
@@ -3165,27 +3165,87 @@ function csAbort(){
 }
 /* ---------- 关卡前剧情导入(第一视角三幕式) ---------- */
 const INTROS=[
+ /* 0 神秘密室 */
  [{m:'calm',d:150,txt:'深夜，你举着手电走进这栋废弃的旧宅，想找个地方过夜。'},
   {m:'impact',d:110,txt:'哐当——！！身后的铁门轰然锁死，震得墙灰簌簌往下掉！'},
   {m:'after',d:210,txt:'桌上有张字条：「拼出单词，物品自现。」门外，一个声音轻笑：「我知道你在里面……」'}],
+ /* 1 废弃校车 */
+ [{m:'calm',d:150,txt:'荒野公路旁停着一辆锈迹斑斑的废弃校车，你钻进去避风。'},
+  {m:'impact',d:110,txt:'呜——！！车厢外骤然响起此起彼伏的低嚎，十几双绿眼睛亮了起来！'},
+  {m:'after',d:210,txt:'野狗群把校车围住了。它们在等你出来。跑——答对一个词就多抢出一步！'}],
+ /* 2 锈锁仓库 */
+ [{m:'calm',d:150,txt:'你翻进这座废弃仓库找补给，铁门在身后缓缓合拢。'},
+  {m:'impact',d:110,txt:'咔哒——！！电子锁自动落闩，红灯开始闪烁：电量 3%。'},
+  {m:'after',d:210,txt:'锁面刻着四位密码槽。电快没了——每拼对一批单词，就能点亮一位数字。'}],
+ /* 3 沉没游轮 */
  [{m:'calm',d:150,txt:'深夜的游轮在海面平稳航行，你倚着船舷吹着海风，准备回舱休息。'},
   {m:'impact',d:110,txt:'轰隆——！！船身猛地撞上暗礁，你被狠狠甩向墙壁！'},
   {m:'after',d:210,txt:'船体倾斜，海水涌进走廊，甲板下有什么东西正游过来——快找逃生装备！'}],
+ /* 4 深海追猎 */
+ [{m:'calm',d:150,txt:'你背着氧气瓶潜入礁区，阳光在水面碎成一片片金色。'},
+  {m:'impact',d:110,txt:'咕噜——！！一道灰影贴着海床掠过，掀起的水流把你顶得翻了个身！'},
+  {m:'after',d:210,txt:'它在绕圈，一圈比一圈近。浮台还在三十米外——游！'}],
+ /* 5 灯塔迷径 */
+ [{m:'calm',d:150,txt:'浓雾里，那座废弃灯塔的光还在一圈圈扫着海面。你推门进去避雨。'},
+  {m:'impact',d:110,txt:'砰——！！门被风摔上，螺旋楼梯在雾气中忽然变得看不到尽头。'},
+  {m:'after',d:210,txt:'每层都有岔路，门牌上只有英文。认错一个词，你就会绕回原地。'}],
+ /* 6 火山营地 */
  [{m:'calm',d:150,txt:'营地的篝火噼啪作响，远处的火山安静得像睡着了一样。'},
   {m:'impact',d:110,txt:'轰——！！火山骤然喷发，大地剧烈震颤，你摔倒在地！'},
   {m:'after',d:210,txt:'火星如雨点砸落，岩浆翻过山脊涌向营地——收拾装备，快跑！'}],
+ /* 7 熔岩追逐 */
+ [{m:'calm',d:150,txt:'你沿着山沟往下撤，脚下的碎石还带着白天的余温。'},
+  {m:'impact',d:110,txt:'轰隆隆——！！山脊裂开一道口子，橘红色的洪流灌进了山沟！'},
+  {m:'after',d:210,txt:'岩浆比你快。唯一的活路是抄近道——每拼对一个词，就多抢几步。'}],
+ /* 8 地热管道 */
+ [{m:'calm',d:150,txt:'你钻进地热电站的检修管道，想从这条捷径穿到山的另一侧。'},
+  {m:'impact',d:110,txt:'嗤——！！蒸汽阀突然爆开，滚烫的白雾瞬间灌满整条管道！'},
+  {m:'after',d:210,txt:'泄压阀要五位序列码，铭牌早被烤花了。压力还在涨——一位一位试出来！'}],
+ /* 9 丧尸医院 */
  [{m:'calm',d:150,txt:'深夜值班的医院走廊很安静，只有仪器规律的滴答声。'},
   {m:'impact',d:110,txt:'啪——！！全楼骤然断电，黑暗中玻璃碎裂，警报凄厉炸响！'},
   {m:'after',d:210,txt:'应急灯的红光里，病历上写着「病毒爆发」。走廊尽头，拖沓的脚步声正在逼近……'}],
+ /* 10 长廊逃亡 */
+ [{m:'calm',d:150,txt:'你摸黑走到住院部三楼，安全出口的绿灯在长廊尽头亮着。'},
+  {m:'impact',d:110,txt:'哗啦——！！身后所有病房门同时被撞开，整层楼的东西都涌了出来！'},
+  {m:'after',d:210,txt:'别回头，只管往前拼。答错一次，它们就逼近三步。'}],
+ /* 11 隔离迷宫 */
+ [{m:'calm',d:150,txt:'隔离区被临时隔板改造过，走道像迷宫一样绕来绕去。'},
+  {m:'impact',d:110,txt:'滴——滴——！！封锁警报响起，所有指示灯由绿转红！'},
+  {m:'after',d:210,txt:'每个路口只有一块贴着英文的门牌。认错词，就走进死路。'}],
+ /* 12 沙漠遗迹 */
  [{m:'calm',d:150,txt:'你举着火把深入千年遗迹的甬道，壁画上的眼睛仿佛随火光转动。'},
   {m:'impact',d:110,txt:'咔哒——！！你踩中了机关，甬道剧烈摇晃，顶部轰然坍塌！'},
   {m:'after',d:210,txt:'沙尘中浮现石刻警告：「触碰机关者，永眠于此。」背后传来一声千年的叹息……'}],
+ /* 13 沙暴突围 */
+ [{m:'calm',d:150,txt:'你牵着骆驼走在沙脊上，地平线安静得有些反常。'},
+  {m:'impact',d:110,txt:'呼——！！天边扬起一堵几十米高的沙墙，正横扫过来！'},
+  {m:'after',d:210,txt:'绿洲就在前方。能不能跑赢，全看你拼词的手速。'}],
+ /* 14 星象密室 */
+ [{m:'calm',d:150,txt:'甬道尽头是一间圆形石室，穹顶刻满了星图。'},
+  {m:'impact',d:110,txt:'轰——！！你身后的石门落下，星图上五颗星同时熄灭！'},
+  {m:'after',d:210,txt:'祭司的谜题藏在词义里：答对一批，亮起一颗星。五颗齐亮，石门自开。'}],
+ /* 15 失控空间站 */
  [{m:'calm',d:150,txt:'透过舷窗，蔚蓝的地球安静地悬在无边的黑暗里。'},
   {m:'impact',d:110,txt:'砰——！！陨石击穿舱壁，整个空间站剧烈翻滚，警报炸响！'},
   {m:'after',d:210,txt:'「氧气泄漏」广播冷冰冰地重复着。维修机器人转过身，红色镜头锁定了你。'}],
+ /* 16 失重追逐 */
+ [{m:'calm',d:150,txt:'你飘在零重力走廊里，扶着把手一格一格往气闸舱挪。'},
+  {m:'impact',d:110,txt:'嗡——！！走廊灯全部转红，检修机器人把你判定成了「故障源」。'},
+  {m:'after',d:210,txt:'它在失重里比你灵活得多。只能靠拼词抢通道——快！'}],
+ /* 17 母舰迷舱 */
+ [{m:'calm',d:150,txt:'母舰内部空无一人，舱室编号在墙上安静地亮着。'},
+  {m:'impact',d:110,txt:'咔——！！整层舱室开始旋转重组，你脚下的地板换了个方向！'},
+  {m:'after',d:210,txt:'每分钟重排一次，舱门上的英文标识是唯一线索。认错一次，回到起点。'}],
 ];
+function escArt(i){ const sc=ESCAPES[i]; return Math.max(0, Math.min(CHASE.length-1, (sc.book||1)-1)); }
+function escCap(i){
+  const sc=ESCAPES[i];
+  if(sc.mode==='chase' && sc.chaserName) return sc.chaser+' '+sc.chaserName+'追上来了！！快跑！！';
+  return CHASE[escArt(i)].cap;
+}
 function playIntro(i, done){
-  const sc=ESCAPES[i], cfg=CHASE[i%CHASE.length];
+  const sc=ESCAPES[i], cfg=CHASE[escArt(i)];
   const cv=$('cscanvas'); cv.width=innerWidth; cv.height=innerHeight;
   $('cutscene').style.display='block';
   $('csskip').textContent='🏃 开始逃生';
@@ -3348,7 +3408,7 @@ function drawEnv(c,si,W,H,ts,beat,bt){
   }
 }
 function csDrawIntro(){
-  const si=CS.opt.scIdx%INTROS.length, script=INTROS[si];
+  const si=Math.min(CS.opt.scIdx, INTROS.length-1), script=INTROS[si];
   const envDur=script[0].d+script[1].d+script[2].d;
   if(CS.t<envDur) return csDrawBeats(script, si);
   return csDrawClownIntro(CS.t-envDur, si);
