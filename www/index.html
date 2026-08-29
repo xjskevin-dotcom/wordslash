@@ -2430,94 +2430,209 @@ function escDanger(){
 function drawEscScene(c,W,H){
   const art=escArt(E.i), th=ESCTHEME[art]||ESCTHEME[0];
   const p=escProg(), dg=escDanger(), t=ESC_T*0.016;
-  /* 天空 */
-  const g=c.createLinearGradient(0,0,0,H);
+  const gy=H*0.70;                    /* 地平线 */
+  const laneL=W*0.16, laneR=W*0.88;   /* 跑道左右端 */
+  const px=laneL+(laneR-laneL)*p;     /* 玩家：随进度前进 */
+  /* 威胁始终在玩家「后方」，随危险度缩短间距 */
+  const gap=(W*0.40)*(1-dg)+W*0.05;
+  const tx=px-gap;
+
+  /* ---------- 天空 ---------- */
+  const g=c.createLinearGradient(0,0,0,gy);
   g.addColorStop(0,th.sky[0]); g.addColorStop(1,th.sky[1]);
-  c.fillStyle=g; c.fillRect(0,0,W,H);
-  /* 危险泛红 */
-  if(dg>0.25){
-    c.fillStyle='rgba(255,40,40,'+((dg-0.25)*0.34*(0.75+0.25*Math.sin(t*4))).toFixed(3)+')';
-    c.fillRect(0,0,W,H);
+  c.fillStyle=g; c.fillRect(0,0,W,gy);
+
+  /* ---------- 远景剪影（视差）---------- */
+  c.fillStyle='rgba(0,0,0,.35)';
+  for(let i2=0;i2<5;i2++){
+    const bx=((i2*W/4)-(t*6)%(W/4)*0+ (i2*W/4)) % (W+80) - 40;
+    const bw=W/3.2, bh=art===5?10:art===4?16:30;
+    c.beginPath(); c.moveTo(bx,gy);
+    c.quadraticCurveTo(bx+bw/2, gy-bh-Math.sin(i2*1.7)*5, bx+bw, gy);
+    c.closePath(); c.fill();
   }
-  /* 粒子 */
-  c.save();
-  ESC_PARTS.forEach(q=>{
-    q.y-=q.v*(art===2?1.5:art===1?-0.7:0.6);
-    q.x+=Math.sin(t+q.ph)*0.35 + (art===4? 1.2+dg*2 : 0);
-    if(q.y<-4) q.y=H+4; if(q.y>H+4) q.y=-4;
-    if(q.x>W+4) q.x=-4; if(q.x<-4) q.x=W+4;
-    c.globalAlpha=.35+.4*Math.sin(t*2+q.ph);
-    c.fillStyle=th.dust;
-    c.beginPath(); c.arc(q.x,q.y,q.r,0,6.28); c.fill();
-  });
-  c.restore(); c.globalAlpha=1;
-  const gy=H*0.72;
-  /* 各主题专属绘制 */
-  if(art===1){ /* 海洋：水位随危险上涨 */
-    const wl=H*(0.78-0.34*dg);
-    c.fillStyle='rgba(0,150,220,.55)';
-    c.beginPath(); c.moveTo(0,wl);
-    for(let x=0;x<=W;x+=8) c.lineTo(x, wl+Math.sin(x*0.05+t*2)*4);
-    c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
-    c.fillStyle='rgba(255,255,255,.25)';
-    for(let x=0;x<W;x+=26) c.fillRect(x,wl+Math.sin(x*0.05+t*2)*4,14,1.5);
-    c.font='20px serif'; c.fillText('🌙',W-34,26);
-  }else if(art===2){ /* 火山：岩浆自下逼近 */
-    const lv=H*(1-0.16-0.3*dg);
-    const lg=c.createLinearGradient(0,lv,0,H);
-    lg.addColorStop(0,'rgba(255,190,60,.95)'); lg.addColorStop(1,'rgba(190,30,0,.95)');
-    c.fillStyle=lg;
-    c.beginPath(); c.moveTo(0,lv);
-    for(let x=0;x<=W;x+=10) c.lineTo(x, lv+Math.sin(x*0.06+t*3)*5);
-    c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
-  }else if(art===5){ /* 太空：星轨 + 舱体 */
-    c.fillStyle='rgba(255,255,255,.9)';
-    for(let i=0;i<(ESC_LOW?14:30);i++){
-      const sx=(i*97+t*22*(1+dg))%W, sy=(i*53)%(H*0.7);
-      c.globalAlpha=.4+.6*Math.sin(t*3+i); c.fillRect(sx,sy,1.6,1.6);
+  if(art===1){ c.font='18px serif'; c.textAlign='left'; c.fillText('🌙',W-30,22); }
+  if(art===5){
+    c.fillStyle='rgba(255,255,255,.85)';
+    for(let i2=0;i2<(ESC_LOW?12:24);i2++){
+      const sx=(i2*79+t*14)%W, sy=(i2*37)%(gy*0.8);
+      c.globalAlpha=.35+.5*Math.sin(t*3+i2); c.fillRect(sx,sy,1.5,1.5);
     }
     c.globalAlpha=1;
-    c.fillStyle='#1b2350'; c.fillRect(0,H*0.8,W,H*0.2);
-    c.strokeStyle='rgba('+th.accent+',.5)'; c.lineWidth=1;
-    for(let x=10;x<W;x+=34){ c.beginPath(); c.moveTo(x,H*0.8); c.lineTo(x,H); c.stroke(); }
-  }else{ /* 旧宅 / 医院 / 沙漠：地面 + 远景剪影 */
-    c.fillStyle=th.gnd; c.fillRect(0,gy,W,H-gy);
-    c.fillStyle='rgba(0,0,0,.45)';
-    const hills=art===4?5:4;
-    for(let i=0;i<hills;i++){
-      const bx=(i*W/hills), bw=W/hills*1.3;
-      c.beginPath(); c.moveTo(bx,gy);
-      c.quadraticCurveTo(bx+bw/2, gy-(art===4?18:34)-Math.sin(i*2+t*.4)*4, bx+bw, gy);
-      c.closePath(); c.fill();
+  }
+
+  /* ---------- 地面 ---------- */
+  const gg=c.createLinearGradient(0,gy,0,H);
+  gg.addColorStop(0,th.gnd); gg.addColorStop(1,'#05060f');
+  c.fillStyle=gg; c.fillRect(0,gy,W,H-gy);
+  c.strokeStyle='rgba('+th.accent+',.25)'; c.lineWidth=1;
+  c.beginPath(); c.moveTo(0,gy); c.lineTo(W,gy); c.stroke();
+
+  /* ---------- 跑道虚线 ---------- */
+  c.strokeStyle='rgba('+th.accent+',.28)'; c.lineWidth=2; c.setLineDash([7,8]);
+  c.lineDashOffset=-(t*30)%15;
+  c.beginPath(); c.moveTo(laneL-10,gy+16); c.lineTo(laneR+12,gy+16); c.stroke();
+  c.setLineDash([]); c.lineDashOffset=0;
+
+  /* ---------- 威胁：从后方压过来的一堵「墙」 ---------- */
+  drawThreat(c,W,H,gy,tx,dg,art,th,t);
+
+  /* ---------- 出口 ---------- */
+  const near=Math.max(0,(p-0.6)/0.4);
+  c.save();
+  c.globalAlpha=.5+.5*Math.sin(t*3)*near+near*0.3;
+  const eg=c.createRadialGradient(laneR+12,gy+2,2,laneR+12,gy+2,26+18*near);
+  eg.addColorStop(0,'rgba(255,240,180,'+(0.35+0.5*near).toFixed(2)+')');
+  eg.addColorStop(1,'rgba(255,240,180,0)');
+  c.fillStyle=eg; c.fillRect(laneR-30,gy-40,80,70);
+  c.restore();
+  c.font='22px serif'; c.textAlign='center'; c.textBaseline='alphabetic';
+  c.fillText('🚪', laneR+12, gy+8);
+
+  /* ---------- 玩家：奔跑起伏 + 拖影 ---------- */
+  const bob=Math.abs(Math.sin(t*7))*3;
+  c.globalAlpha=.25;
+  c.font='20px serif'; c.fillText('💨', px-16, gy+6-bob*0.5);
+  c.globalAlpha=1;
+  c.font='24px serif';
+  c.fillText('🏃', px, gy+8-bob);
+
+  /* ---------- 顶部信息 ---------- */
+  c.textAlign='left'; c.font='600 11px -apple-system,sans-serif';
+  c.fillStyle='rgba(255,255,255,.55)';
+  c.fillText(threatLabel(art,dg), 10, 16);
+  c.textAlign='center'; c.fillStyle='rgba('+th.accent+',.9)';
+  c.fillText(Math.round(p*100)+'%', W/2, 16);
+  c.textAlign='right'; c.fillStyle='rgba(255,255,255,.4)';
+  c.fillText(modeTag(), W-10, 16);
+  c.textAlign='left';
+
+  /* ---------- 危险泛红 ---------- */
+  if(dg>0.55){
+    c.fillStyle='rgba(255,40,40,'+((dg-0.55)*0.5*(0.7+0.3*Math.sin(t*6))).toFixed(3)+')';
+    c.fillRect(0,0,W,H);
+  }
+}
+function modeTag(){
+  const m=E.mode;
+  return m==='chase'? '追逐' : m==='code'? '破译' : m==='maze'? '迷宫' : '收集';
+}
+function threatLabel(art,dg){
+  const names=['黑影','海水','岩浆','尸潮','沙暴','机械臂'];
+  const n=(E.sc.chaserName)||names[art];
+  if(E.mode==='code') return dg>0.7? '⚠ 电量将尽' : '🔋 电量流失中';
+  return dg>0.7? '⚠ '+n+'逼近！' : dg>0.4? '⏳ '+n+'在后面' : '🚩 保持节奏';
+}
+/* 按册主题画「追上来的东西」：一堵有厚度的墙，右缘翻涌 */
+function drawThreat(c,W,H,gy,tx,dg,art,th,t){
+  /* 破译：威胁不是追兵，而是电量/压力耗尽 —— 黑暗从四周收拢 */
+  if(E.mode==='code'){
+    const v=c.createRadialGradient(W/2,gy-10,Math.max(10,W*(0.46-0.30*dg)),W/2,gy-10,W*0.62);
+    v.addColorStop(0,'rgba(0,0,0,0)');
+    v.addColorStop(1,'rgba(0,0,0,'+(0.55+0.4*dg).toFixed(2)+')');
+    c.fillStyle=v; c.fillRect(0,0,W,H);
+    const n=E.digits||4, bw=Math.min(26,(W*0.5)/n), bx=W/2-(n*bw+ (n-1)*6)/2;
+    for(let k=0;k<n;k++){
+      const on=k<E.slot;
+      c.fillStyle= on? 'rgba(0,212,166,.95)':'rgba(255,255,255,.16)';
+      c.fillRect(bx+k*(bw+6), 26, bw, 6);
+    }
+    c.fillStyle='rgba(255,'+(200-120*dg).toFixed(0)+',60,.9)';
+    c.fillRect(12, gy+26, (W-24)*(1-dg), 4);
+    c.strokeStyle='rgba(255,255,255,.25)'; c.lineWidth=1;
+    c.strokeRect(12, gy+26, W-24, 4);
+    c.font='16px serif'; c.textAlign='left';
+    c.fillText('🔋', 12, gy+22);
+    return;
+  }
+  /* 迷宫：威胁是迷路 —— 雾从后方漫上来，沿途标出门 */
+  if(E.mode==='maze'){
+    const fg=c.createLinearGradient(tx-W*0.5,0,tx+W*0.1,0);
+    fg.addColorStop(0,'rgba(150,160,200,0)');
+    fg.addColorStop(1,'rgba(150,160,200,'+(0.30+0.35*dg).toFixed(2)+')');
+    c.fillStyle=fg; c.fillRect(-10,0,tx+W*0.1,H);
+    const cells=E.cells||24, step=(W*0.72)/Math.max(1,cells);
+    c.font='11px serif'; c.textAlign='center';
+    for(let k=0;k<cells;k+=Math.max(1,E.forkEvery||5)){
+      const dx=W*0.16+step*k;
+      c.globalAlpha=k<E.cell?0.75:0.28;
+      c.fillText('🚪', dx, gy-6);
+    }
+    c.globalAlpha=1;
+    return;
+  }
+  if(tx < -W*0.5) return;
+  const edge=tx, waveH=8+6*dg;
+  c.save();
+  if(art===2){                       /* 火山：岩浆流 */
+    const lg=c.createLinearGradient(0,gy-30,0,H);
+    lg.addColorStop(0,'rgba(255,220,120,.95)');
+    lg.addColorStop(.35,'rgba(255,120,20,.95)');
+    lg.addColorStop(1,'rgba(150,20,0,.95)');
+    c.fillStyle=lg;
+    c.beginPath(); c.moveTo(-10,H); c.lineTo(-10,gy+2);
+    for(let x=-10;x<=edge;x+=8) c.lineTo(x, gy+2+Math.sin(x*.05+t*4)*4);
+    c.lineTo(edge, gy+2+Math.sin(edge*.05+t*4)*4);
+    c.quadraticCurveTo(edge+14, gy+10, edge, H);
+    c.closePath(); c.fill();
+    c.fillStyle='rgba(255,240,180,.9)';
+    for(let k=0;k<(ESC_LOW?3:7);k++){
+      const ex=edge-6-Math.random()*24, ey=gy+4-((t*40+k*33)%36);
+      c.globalAlpha=Math.max(0,1-((t*40+k*33)%36)/36);
+      c.beginPath(); c.arc(ex,ey,1.6,0,6.28); c.fill();
+    }
+    c.globalAlpha=1;
+  }else if(art===1){                 /* 海洋：涌来的水墙 */
+    const wg=c.createLinearGradient(0,gy-34,0,H);
+    wg.addColorStop(0,'rgba(120,215,255,.9)');
+    wg.addColorStop(1,'rgba(6,60,110,.95)');
+    c.fillStyle=wg;
+    c.beginPath(); c.moveTo(-10,H); c.lineTo(-10,gy-6);
+    for(let x=-10;x<=edge;x+=8) c.lineTo(x, gy-6+Math.sin(x*.06+t*4)*waveH*.5);
+    c.quadraticCurveTo(edge+18, gy-24, edge+4, H);
+    c.closePath(); c.fill();
+    c.strokeStyle='rgba(255,255,255,.75)'; c.lineWidth=2;
+    c.beginPath();
+    for(let x=Math.max(-10,edge-70);x<=edge;x+=6) c.lineTo(x, gy-8+Math.sin(x*.09+t*6)*4);
+    c.stroke();
+  }else if(art===4){                 /* 沙漠：沙暴墙 */
+    const sg=c.createLinearGradient(edge-W*0.5,0,edge,0);
+    sg.addColorStop(0,'rgba(190,140,70,0)');
+    sg.addColorStop(.6,'rgba(200,150,80,.75)');
+    sg.addColorStop(1,'rgba(225,180,110,.92)');
+    c.fillStyle=sg; c.fillRect(-10,0,edge+10,H);
+    c.fillStyle='rgba(255,225,170,.55)';
+    for(let k=0;k<(ESC_LOW?8:18);k++){
+      const sx=edge-((t*70+k*41)%(W*0.5)), sy=(k*37+t*20)%H;
+      c.fillRect(sx,sy,3,2);
+    }
+  }else if(art===5){                 /* 太空：机械臂 + 警戒光 */
+    const rg=c.createLinearGradient(edge-90,0,edge,0);
+    rg.addColorStop(0,'rgba(255,40,40,0)'); rg.addColorStop(1,'rgba(255,40,40,.35)');
+    c.fillStyle=rg; c.fillRect(edge-90,0,90,H);
+    c.strokeStyle='rgba(180,200,255,.9)'; c.lineWidth=4; c.lineCap='round';
+    c.beginPath(); c.moveTo(edge-40,gy+18);
+    c.lineTo(edge-16,gy-4+Math.sin(t*5)*5); c.lineTo(edge+4,gy+6+Math.cos(t*5)*4);
+    c.stroke(); c.lineCap='butt';
+  }else{                             /* 旧宅 / 医院：黑暗与影子 */
+    const dgd=c.createLinearGradient(edge-W*0.45,0,edge,0);
+    dgd.addColorStop(0,'rgba(0,0,0,0)');
+    dgd.addColorStop(1, art===3? 'rgba(20,60,30,.85)' : 'rgba(10,4,20,.88)');
+    c.fillStyle=dgd; c.fillRect(-10,0,edge+10,H);
+    if(art===3){
+      const rl=c.createRadialGradient(edge-20,gy-20,4,edge-20,gy-20,60);
+      rl.addColorStop(0,'rgba(255,40,40,'+(0.25+0.3*Math.sin(t*4)).toFixed(2)+')');
+      rl.addColorStop(1,'rgba(255,40,40,0)');
+      c.fillStyle=rl; c.fillRect(edge-80,gy-80,120,120);
     }
   }
-  /* 进度路径 */
-  c.strokeStyle='rgba('+th.accent+',.35)'; c.lineWidth=2; c.setLineDash([6,7]);
-  c.beginPath(); c.moveTo(12,gy+12); c.lineTo(W-12,gy+12); c.stroke(); c.setLineDash([]);
-  /* 出口 */
-  c.font='22px serif'; c.textAlign='center';
-  c.globalAlpha=.6+.4*Math.sin(t*3);
-  c.fillText('🚪', W-20, gy+20);
+  /* 追兵本体 */
+  const face=(E.sc.chaser)||['👤','🌊','🌋','🧟','🌪️','👾'][art];
+  c.globalAlpha=Math.min(1,.45+.55*dg);
+  c.font=(19+9*dg).toFixed(0)+'px serif'; c.textAlign='center';
+  c.fillText(face, edge-6, gy+8+Math.sin(t*5)*2);
   c.globalAlpha=1;
-  /* 玩家：随进度前进 */
-  const px=16+(W-52)*p;
-  c.font='24px serif';
-  c.fillText('🧍', px, gy+20+Math.sin(t*6)*1.5);
-  /* 威胁：随危险度逼近 */
-  const threat=(E.sc.chaser)||['👤','🌊','🔥','🧟','🌪️','👾'][art];
-  const tx=Math.max(6, px-14-(1-dg)*(W*0.5));
-  c.globalAlpha=.35+.65*dg;
-  c.font=(18+8*dg).toFixed(0)+'px serif';
-  c.fillText(threat, tx, gy+20+Math.sin(t*5+1)*2);
-  c.globalAlpha=1;
-  /* 顶部氛围文字 */
-  c.textAlign='left'; c.font='600 11px -apple-system,sans-serif';
-  c.fillStyle='rgba(255,255,255,.5)';
-  c.fillText(dg>0.7? '⚠ 危险逼近' : dg>0.4? '⏳ 时间不多了' : '🚩 保持节奏', 10, 16);
-  c.textAlign='center';
-  c.fillStyle='rgba('+th.accent+',.8)';
-  c.fillText(Math.round(p*100)+'%', W/2, 16);
-  c.textAlign='left';
+  c.restore();
 }
 function escFlash(ok){
   const ov=$('esceneov'), wr=$('escenewrap');
