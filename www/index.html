@@ -1021,7 +1021,12 @@ function renderLearn(){
       '<button class="btn green" style="width:100%;font-size:18px" onclick="startPlan()">▶ '+(used>0?'继续学习':'开始今日学习')+'</button>'+
     '</div>'+
     '<div class="bookcard" style="cursor:pointer" onclick="openRange()"><div style="flex:1">'+
-      '<div class="bt" style="font-size:15px">📍 学习范围</div><div class="bs">'+(r?rangeText():'全书顺序（学完自动往后）')+'</div></div><div style="color:var(--acc2)">改 ›</div></div>'+
+      '<div class="bt" style="font-size:15px">📍 学习范围</div><div class="bs">'+(r?rangeText():'全书顺序（学完自动往后）')+'</div>'+
+      (r?'<div class="bs" style="color:var(--gold);margin-top:4px">⚠️ 已限定范围：学习、测验、真题、对话都只出这些课的词</div>':'')+
+      '</div><div style="color:var(--acc2)">改 ›</div></div>'+
+    (dueOutside()? '<div class="bookcard" style="cursor:pointer;border-color:var(--gold)" onclick="clearRange();showTab(\'learn\')"><div style="flex:1">'+
+      '<div class="bt" style="font-size:15px;color:var(--gold)">⏰ 范围外还有 '+dueOutside()+' 个词到期</div>'+
+      '<div class="bs">它们被当前范围挡住了，点这里恢复全书顺序去复习</div></div><div style="color:var(--gold)">↩️</div></div>':'')+
     '<div class="bookcard" style="display:block;cursor:default"><div class="bt" style="font-size:15px">本周打卡</div><div class="cal">'+cal+'</div></div>'+
     '<div class="bookcard" style="display:block;cursor:default"><div class="bt" style="font-size:15px">📈 掌握进度</div>'+
       '<div class="bs" style="margin:4px 0 6px">已掌握 '+mc+' · 已接触 '+lc+' / '+total+' 词</div>'+
@@ -1088,7 +1093,7 @@ function renderPractice(){
       '<div class="tile" onclick="startShadow(shRandomSet())"><div class="te">👂</div><div class="tt">随机跟读</div><div class="td">已学词复习</div></div>'+
     '</div>'+
     '<div class="sect">工具</div><div class="grid2">'+
-      '<div class="tile" onclick="openSearch()"><div class="te">🔍</div><div class="tt">查单词</div><div class="td">释义+记法</div></div>'+
+      '<div class="tile" onclick="openSearch()"><div class="te">🔍</div><div class="tt">查单词</div><div class="td">'+indexSize()+' 词 · 中英互查</div></div>'+
       '<div class="tile" onclick="openMyText()"><div class="te">📕</div><div class="tt">我的题目</div><div class="td">帮读不给答案</div></div>'+
     '</div>';
 }
@@ -1231,7 +1236,7 @@ function mixPool(){
   if(r) wrongs=wrongs.filter(w=>inScope.has(w.w));
   const learned=DICT.words.filter(w=>S.srs[srsKey(w.w)]);
   const base=(r? sc : (learned.length>=10? learned : sc));
-  return {weighted:[].concat(wrongs,wrongs,base), uniq:base.length>=4? base:DICT.words.slice(0,200)};
+  return {weighted:[].concat(wrongs,wrongs,base), uniq:base.length>=4? base:scopePool().slice(0,200)};
 }
 function startMix(){
   const {weighted,uniq}=mixPool();
@@ -1354,14 +1359,16 @@ function openShadowPick(){
 function shPickBook(b){ shBook=b; openShadowPick(); }
 function shStartUnit(b,u){ startShadow(unitWords(b,u), 'Book '+b+' 第 '+u+' 课'); }
 function shRandomSet(){
-  const learned=DICT.words.filter(w=>S.srs[srsKey(w.w)]);
-  return shuffle((learned.length>=10? learned : DICT.words).slice()).slice(0,10);
+  const sc=scopeWords();
+  const learned=sc.filter(w=>S.srs[srsKey(w.w)]);
+  return shuffle((learned.length>=10? learned : sc).slice()).slice(0,10);
 }
 function shPool(){
   const sw=selWords();
   if(sw && sw.length) return sw.slice(0,20);          /* 选中课: 按课文顺序 */
-  const learned=DICT.words.filter(w=>S.srs[srsKey(w.w)]);
-  return shuffle((learned.length>=10? learned : DICT.words).slice()).slice(0,10);
+  const sc=scopeWords();
+  const learned=sc.filter(w=>S.srs[srsKey(w.w)]);
+  return shuffle((learned.length>=10? learned : sc).slice()).slice(0,10);
 }
 function startShadow(words, fromLabel){
   const ws=(words&&words.length)? words.slice(0,20) : shPool();
@@ -1595,7 +1602,7 @@ function startExam(words, onDone){
   fill.forEach((w,i)=>{ html=html.split('{'+i+'}').join('<b style="color:var(--acc2)">'+w.w+'</b>'); });
   const qs=p.qs.map(q=>({type:'comp', q:q.q, opts:shuffle([{t:q.a,ok:1}].concat(q.ds.map(d=>({t:d,ok:0}))))}));
   shuffle(fill.slice()).slice(0,2).forEach(w=>{
-    const ds=shuffle(DICT.words.filter(x=>x.w!==w.w && cnShort(x.cn)!==cnShort(w.cn))).slice(0,3);
+    const ds=shuffle(scopePool().filter(x=>x.w!==w.w && cnShort(x.cn)!==cnShort(w.cn))).slice(0,3);
     qs.push({type:'vocab', w, q:'The word "'+w.w+'" in the passage most likely means ______.',
       opts:shuffle([{t:cnShort(w.cn),ok:1}].concat(ds.map(d=>({t:cnShort(d.cn),ok:0}))))});
   });
@@ -1719,8 +1726,9 @@ function readPool(n){
 function startRead(){
   const ws=readPool(12);
   if(ws.length<4){ toast('这个范围里没有带例句的词，换个范围或用「阅读理解」'); return; }
-  Q={list:ws.map(w=> Math.random()<.7? mkRead(w,DICT.words) : mkMix(w,DICT.words)), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
-     mode:'read', coins:0, wrongWords:[], pool:DICT.words};
+  const rpool=scopePool();
+  Q={list:ws.map(w=> Math.random()<.7? mkRead(w,rpool) : mkMix(w,rpool)), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
+     mode:'read', coins:0, wrongWords:[], pool:rpool};
   setFever(false); go('s-quiz'); showQ();
 }
 
@@ -1755,8 +1763,9 @@ function startReview(){
   }
   const words=shuffle(keys).slice(0,20).map(k=>DICT.words.find(d=>d.w===k)||DATA.find(d=>d.w===k)).filter(Boolean);
   if(!words.length) return;
-  Q={list:mkQuestions(words, DICT.words), idx:0, lives:99, combo:0, maxCombo:0, right:0,
-     mode:'review', coins:0, wrongWords:[], pool:DICT.words};
+  const rpool=scopePool();
+  Q={list:mkQuestions(words, rpool), idx:0, lives:99, combo:0, maxCombo:0, right:0,
+     mode:'review', coins:0, wrongWords:[], pool:rpool};
   setFever(false);
   go('s-quiz'); showQ();
 }
@@ -1765,7 +1774,9 @@ function blitzPool(){
   const learned=[];
   for(let b=1;b<=NBOOKS;b++) for(let u=1;u<=unitsIn(b);u++) if(S.stars[skey(b,u)]>0) learned.push(...unitWords(b,u));
   Object.keys(S.wrong).forEach(k=>{ const w=DICT.words.find(d=>d.w===k); if(w && !learned.includes(w)) learned.push(w); });
-  return learned.length>=20? learned : byBook[1].slice(0,100);
+  if(learned.length>=20) return learned;
+  const sc=scopeWords();
+  return sc.length>=20? sc.slice(0,100) : byBook[1].slice(0,100);
 }
 function startBlitz(){
   const pool=blitzPool();
@@ -3590,9 +3601,26 @@ function srsUpdate(word, ok){
   e.seen=(e.seen||0)+1;
   S.srs[k]=e;
 }
-function dueWords(){
+function scopePool(min){
+  const s=selWords();
+  if(!s||!s.length) return DICT.words;
+  return s.length>=(min||6)? s : DICT.words;
+}
+function dueAll(){
   const t=dayIdx();
   return DICT.words.filter(w=>{ const e=S.srs[srsKey(w.w)]; return e && e.due<=t; });
+}
+/* 选了范围 → 到期复习也只在范围内 */
+function dueWords(){
+  const all=dueAll(), s=selWords();
+  if(!s||!s.length) return all;
+  const inS=new Set(s.map(w=>w.w));
+  return all.filter(w=>inS.has(w.w));
+}
+function dueOutside(){
+  const s=selWords(); if(!s||!s.length) return 0;
+  const inS=new Set(s.map(w=>w.w));
+  return dueAll().filter(w=>!inS.has(w.w)).length;
 }
 function planRange(){
   const r=S.planRange;
@@ -3682,7 +3710,8 @@ function renderRangeFull(){
 function renderRangeBar(){
   const r=planRange(), ws=selWords();
   const n=r? r.sel.length:0, wn=ws? ws.length:0;
-  return '<div class="sum">'+(n? '已选 <b>'+n+'</b> 课 · <b>'+wn+'</b> 词':'未选 · 将按<b>全书顺序</b>学习')+'</div>'+
+  const out=dueOutside();
+  return '<div class="sum">'+(n? '已选 <b>'+n+'</b> 课 · <b>'+wn+'</b> 词'+(out? '<br><span style="color:var(--gold);font-size:11px">范围外 '+out+' 词到期中</span>':'') :'未选 · 将按<b>全书顺序</b>学习')+'</div>'+
     (n? '<button class="btn small green" onclick="closeRange()">✓ 用这些课</button>'
       : '<button class="btn small ghost" onclick="closeRange()">直接返回</button>');
 }
@@ -3842,8 +3871,9 @@ function runSeg(){
   }
   else if(seg.type==='mix'){
     const ws=seg.words.length>20? shuffle(seg.words.slice()).slice(0,20):seg.words;
-    Q={list:ws.map(w=>mkMix(w,DICT.words)), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
-       mode:'plan', coins:0, wrongWords:[], pool:DICT.words, label:seg.label};
+    const rpool=scopePool();
+    Q={list:ws.map(w=>mkMix(w,rpool)), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
+       mode:'plan', coins:0, wrongWords:[], pool:rpool, label:seg.label};
     setFever(false); go('s-quiz'); showQ();
   }
   else if(seg.type==='real'){
@@ -3854,13 +3884,15 @@ function runSeg(){
     startExam(seg.words, ()=>{ logMin(300); PLAN.si++; runSeg(); });
   }
   else if(seg.type==='read'){
-    Q={list:mkReadList(seg.words, DICT.words), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
-       mode:'plan', coins:0, wrongWords:[], pool:DICT.words, label:seg.label, isRead:true};
+    const rpool=scopePool();
+    Q={list:mkReadList(seg.words, rpool), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
+       mode:'plan', coins:0, wrongWords:[], pool:rpool, label:seg.label, isRead:true};
     setFever(false); go('s-quiz'); showQ();
   }
   else{
-    Q={list:mkQuestions(seg.words, DICT.words), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
-       mode:'plan', coins:0, wrongWords:[], pool:DICT.words, label:seg.label, isDue:seg.label.indexOf('复习')>=0};
+    const rpool=scopePool();
+    Q={list:mkQuestions(seg.words, rpool), idx:0, lives:Infinity, combo:0, maxCombo:0, right:0,
+       mode:'plan', coins:0, wrongWords:[], pool:rpool, label:seg.label, isDue:seg.label.indexOf('复习')>=0};
     setFever(false); go('s-quiz'); showQ();
   }
 }
@@ -4086,8 +4118,9 @@ function dlgPool(){
   const sw=selWords(); if(sw&&sw.length>=5) return sw.slice();
   const wrongW=Object.keys(S.wrong).map(k=>findWordObj(k)).filter(Boolean);
   if(wrongW.length>=5) return wrongW;
-  const learned=DICT.words.filter(w=>S.srs[srsKey(w.w)]);
-  return (learned.length>=5? learned : DICT.words).slice();
+  const sc=scopeWords();
+  const learned=sc.filter(w=>S.srs[srsKey(w.w)]);
+  return (learned.length>=5? learned : sc).slice();
 }
 function openDlgPick(){
   const pool=dlgPool();
@@ -4132,7 +4165,7 @@ function dlgShow(){
   $('dlgbar').style.width=Math.round(DLG.i/DLG.targets.length*100)+'%';
   $('dlgresult').innerHTML=''; $('dlgnext').style.display='none';
   $('dlgtask').innerHTML='<div class="dlgtask">🎯 该你说了 —— 用 <b>'+w.w+'</b>（'+cnShort(w.cn)+'）回应。选出正确使用它的那句：</div>';
-  const distract=shuffle(DICT.words.filter(x=>x.w!==w.w && x.ex && x.ex.split(' ').length<=16)).slice(0,2);
+  const distract=shuffle(scopePool().filter(x=>x.w!==w.w && x.ex && x.ex.split(' ').length<=16)).slice(0,2);
   const opts=shuffle([w].concat(distract));
   const o=$('dlgopts'); o.innerHTML='';
   opts.forEach(x=>{
@@ -4410,17 +4443,49 @@ function lsnFinish(){
 
 /* ================= 查单词(翻译+记背方式) ================= */
 let WIDX=null, WIDXID=null;
+function dictCacheKeys(){
+  const out=[];
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf('eewdict_')===0) out.push(k); } }catch(e){}
+  return out.sort();
+}
+function dictLabel(id){
+  if(id==='eew') return '内置';
+  const m=(typeof REGISTRY!=='undefined'&&REGISTRY)? REGISTRY.find(r=>r.id===id):null;
+  return m? m.name : id;
+}
+/* 合并：内置 3600 + 当前词书 + 所有下载过的词书，字段互补 */
 function allWordsIndex(){
-  if(WIDX && WIDXID===DICT.id) return WIDX;
+  const keys=dictCacheKeys();
+  const sig=DICT.id+'|'+DICT.words.length+'|'+keys.join(',');
+  if(WIDX && WIDXID===sig) return WIDX;
   const m=new Map();
-  DICT.words.forEach(w=>m.set(w.w.toLowerCase(),w));
-  DATA.forEach(w=>{ const k=w.w.toLowerCase(); if(!m.has(k)) m.set(k,w); });
-  WIDX=m; WIDXID=DICT.id;
+  function add(w, src){
+    const k=(w.w||'').toLowerCase().trim();
+    if(!k) return;
+    const cur=m.get(k);
+    if(!cur){ m.set(k, {w:w.w, p:w.p||'', cn:w.cn||'', def:w.def||'', ex:w.ex||'', src:[src]}); return; }
+    if(!cur.p && w.p) cur.p=w.p;
+    if(!cur.def && w.def) cur.def=w.def;
+    if(!cur.ex && w.ex) cur.ex=w.ex;
+    if((w.cn||'').length>(cur.cn||'').length) cur.cn=w.cn;
+    if(cur.src.indexOf(src)<0) cur.src.push(src);
+  }
+  DATA.forEach(w=>add(w,'内置'));
+  DICT.words.forEach(w=>add(w, dictLabel(DICT.id)));
+  keys.forEach(k=>{
+    const id=k.slice(8);
+    try{
+      const arr=JSON.parse(localStorage.getItem(k)||'null');
+      if(arr&&arr.length) arr.forEach(a=>add({w:a[0],p:a[1],cn:a[2],def:'',ex:''}, dictLabel(id)));
+    }catch(e){}
+  });
+  WIDX=m; WIDXID=sig;
   return m;
 }
+function indexSize(){ return allWordsIndex().size; }
 function openSearch(){
   $('wsearch').value='';
-  $('wsresults').innerHTML='<div class="ds" style="padding:14px;text-align:center">输入英文单词，点击结果查看翻译和记背方式</div>';
+  $('wsresults').innerHTML=searchHint();
   $('searchmodal').classList.add('on');
   setTimeout(()=>{ try{$('wsearch').focus();}catch(e){} },60);
 }
@@ -4431,28 +4496,41 @@ function mkRow(title,sub,fn){
   d.onclick=fn;
   return d;
 }
+function searchHint(){
+  return '<div class="ds" style="padding:14px;text-align:center">输入英文或中文都能查 · 词库共收录 <b style="color:var(--acc2)">'+indexSize()+'</b> 词<br><span style="font-size:12px">换过的词书会自动并入，越用越全</span></div>';
+}
 function doSearch(){
-  const q=($('wsearch').value||'').trim().toLowerCase();
+  const raw=($('wsearch').value||'').trim();
+  const q=raw.toLowerCase();
   const el=$('wsresults'); el.innerHTML='';
-  if(!q){ el.innerHTML='<div class="ds" style="padding:14px;text-align:center">输入英文单词，点击结果查看翻译和记背方式</div>'; return; }
+  if(!q){ el.innerHTML=searchHint(); return; }
   const idx=allWordsIndex();
-  const starts=[], contains=[];
+  const isCN=/[\u4e00-\u9fa5]/.test(raw);
+  const exact=[], starts=[], contains=[], cnHit=[];
   for(const pair of idx){
     const k=pair[0], w=pair[1];
-    if(k===q) starts.unshift(w);
-    else if(k.indexOf(q)===0){ if(starts.length<9) starts.push(w); }
-    else if(k.indexOf(q)>0 && contains.length<4) contains.push(w);
+    if(isCN){
+      if((w.cn||'').indexOf(raw)>=0 && cnHit.length<30) cnHit.push(w);
+      continue;
+    }
+    if(k===q) exact.push(w);
+    else if(k.indexOf(q)===0){ if(starts.length<20) starts.push(w); }
+    else if(k.indexOf(q)>0){ if(contains.length<10) contains.push(w); }
   }
-  const list=starts.concat(contains).slice(0,9);
+  if(isCN) cnHit.sort((a,b)=>(a.cn||'').indexOf(raw)-(b.cn||'').indexOf(raw));
+  else { starts.sort((a,b)=>a.w.length-b.w.length); }
+  const list=(isCN? cnHit : exact.concat(starts,contains)).slice(0,20);
   list.forEach(w=>{
-    el.appendChild(mkRow(w.w+(w.p?'  /'+w.p+'/':''), cnShort(w.cn), ()=>{
-      $('searchmodal').classList.remove('on'); showTipObj(w);
-    }));
+    const srcTag=(w.src&&w.src.length>1)? ' · '+w.src.slice(0,2).join('/') : (w.src?' · '+w.src[0]:'');
+    el.appendChild(mkRow(
+      (wordEmo(w)||'')+' '+w.w+(w.p?'  /'+w.p+'/':''),
+      cnShort(w.cn)+'<span style="color:#5b63a0;font-size:11px">'+srcTag+'</span>',
+      ()=>{ $('searchmodal').classList.remove('on'); showTipObj(w); }));
   });
-  if(!idx.has(q) && /^[a-z][a-z '-]{1,30}$/.test(q)){
-    el.appendChild(mkRow('「'+q+'」', '词库未收录 · 点击联网查询翻译并生成记法', ()=>lookupUnknown(q)));
+  if(!isCN && !idx.has(q) && /^[a-z][a-z '-]{1,30}$/.test(q)){
+    el.appendChild(mkRow('「'+raw+'」', '词库未收录 · 点击联网查询翻译并生成记法', ()=>lookupUnknown(q)));
   }
-  if(!el.children.length) el.innerHTML='<div class="ds" style="padding:14px;text-align:center">没有找到，请检查拼写（只支持英文单词）</div>';
+  if(!el.children.length) el.innerHTML='<div class="ds" style="padding:14px;text-align:center">没有找到「'+raw+'」<br><span style="font-size:12px">中文可试试更短的词，如「坚定」</span></div>';
 }
 $('wsearch').addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
