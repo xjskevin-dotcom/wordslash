@@ -1786,10 +1786,27 @@ function mkRead(w, pool){
   return mkQ(w,pool);
 }
 function mkReadList(words, pool){ return shuffle(words.slice()).map(w=>mkRead(w,pool)); }
-function scoped(fb, min){
+/* 标称册的词 ∩ 学习范围。
+   - 没设范围 → 用标称册（标签「Book N 词汇」属实）
+   - 有交集   → 用交集（标签标明「Book N 中你选的课」）
+   - 无交集   → 用范围全体，并如实告知本册没有选中的课
+   旧实现只要设了范围就整个替换掉标称册，导致「Book 1」里出现第 3 册的词。 */
+function bookScoped(fb, min){
   const sw=selWords();
-  return (sw && sw.length>=(min||8))? sw : fb;
+  if(!sw || !sw.length) return {words:fb, kind:'book'};
+  const inS=new Set(sw.map(w=>w.w));
+  const inter=fb.filter(w=>inS.has(w.w));
+  if(inter.length>=(min||10)) return {words:inter, kind:'both'};
+  return {words:sw, kind:'range'};
 }
+function srcText(kind, book){
+  if(kind==='book') return 'Book '+book+' 词汇';
+  if(kind==='both') return 'Book '+book+' 中你选的课';
+  return '⛔ 本册没有你选中的课';
+}
+/* 标称册与学习范围没有交集时，宁可不开这一关，也不拿别册的词冒充 */
+function bookPlayable(fb, min){ return bookScoped(fb, min).kind!=='range'; }
+function scoped(fb, min){ return bookScoped(fb, min).words; }
 function scopeWords(){
   const sw=selWords();
   if(sw && sw.length) return sw;
@@ -2139,11 +2156,13 @@ function quitQuiz(){ stopTimer(); setFever(false); save(); const wasPlan=Q&&Q.mo
 let B=null;
 function startBoss(book,g){
   let pool0=byBook[book].slice((g-1)*100, g*100); if(pool0.length<20) pool0=byBook[book].slice();
-  pool0=scoped(pool0,10);
-  const pool=shuffle(pool0.slice());
+  const src=bookScoped(pool0,10);
+  if(src.kind==='range'){ toast('⛔ 你的学习范围里没有 Book '+book+' 的课，先去调整范围'); return; }
+  const pool=shuffle(src.words.slice());
   B={book, g, hp:100, maxhp:100, lives:3, combo:0, maxCombo:0, right:0, idx:0,
-     queue:pool, coins:0, wrongWords:[], face:BOSSES[g-1]};
-  $('bossname').textContent = B.face+' Book '+book+' · '+g+' 号拼写 Boss';
+     queue:pool, coins:0, wrongWords:[], face:BOSSES[g-1], srcKind:src.kind};
+  $('bossname').textContent = B.face+' Book '+book+' · '+g+' 号拼写 Boss'+
+    (src.kind!=='book'? '（'+srcText(src.kind, book)+'）':'');
   $('bossface').textContent = B.face;
   go('s-boss'); askB();
 }
@@ -2269,18 +2288,22 @@ function escUnlocked(i){
 function openEscape(){
   const _r=planRange();
   const total=ESCAPES.length, won=ESCAPES.filter((s,i)=>S.escape[i]).length;
-  $('esctag').textContent=(_r? '📍 词取自你选中的 '+_r.sel.length+' 课 · ':'')+
-    '4 种玩法 · '+total+' 个副本 · 已逃出 '+won+'/'+total;
+  const blocked=ESCAPES.filter(s=>!bookPlayable(byBook[Math.min(s.book,NBOOKS)],10)).length;
+  $('esctag').textContent='4 种玩法 · '+total+' 个副本 · 已逃出 '+won+'/'+total+
+    (_r? ' · 📍 只出你选中的 '+_r.sel.length+' 课的词'+(blocked? '（'+blocked+' 个副本因不在范围内暂不可进）':'') : '');
   const el=$('esclist'); el.innerHTML='';
   let curBook=0;
   ESCAPES.forEach((sc,i)=>{
     if(sc.book!==curBook){
       curBook=sc.book;
       const hd=document.createElement('div');
-      hd.className='sect'; hd.textContent='📕 Book '+curBook+' 词汇';
+      hd.className='sect';
+      hd.textContent='📕 Book '+curBook+(planRange()? '（按你选的课出题）':' 词汇');
       el.appendChild(hd);
     }
-    const done=!!S.escape[i], unlocked=escUnlocked(i);
+    const srcInfo=bookScoped(byBook[Math.min(sc.book,NBOOKS)],10);
+    const playable=srcInfo.kind!=='range';
+    const done=!!S.escape[i], unlocked=escUnlocked(i)&&playable;
     const mi=MODEINFO[sc.mode||'collect'];
     const tierTag=['','入门','进阶','终局'][sc.tier||1];
     const card=document.createElement('div');
@@ -2289,10 +2312,13 @@ function openEscape(){
       '<div class="bt">'+sc.emoji+' '+sc.name+' '+(done?'✅':'')+
         '<span style="font-size:11px;color:var(--gold);margin-left:6px">'+tierTag+'</span></div>'+
       '<div class="bs" style="color:var(--acc2);margin-top:2px">'+mi.icon+' '+mi.name+'玩法 · '+sc.need+' 词 · 时限 '+fmtT(sc.time)+'</div>'+
+      '<div class="bs" style="margin-top:2px'+(playable?'':';color:var(--gold)')+'">📖 出题范围：'+srcText(srcInfo.kind, sc.book)+
+        (playable?'':' · <span style="text-decoration:underline">点这里去改范围</span>')+'</div>'+
       '<div class="bs" style="margin-top:2px">'+mi.desc+'</div>'+
       ((sc.mode||'collect')==='collect'? '<div class="bs" style="margin-top:2px">'+sc.items.map(it=>it[0]).join(' ')+'</div>':'')+
-      '</div><div class="pct">'+(done?'已逃出':(unlocked?'▶':'🔒'))+'</div>';
+      '</div><div class="pct">'+(done?'已逃出':(!playable?'⛔':(unlocked?'▶':'🔒')))+'</div>';
     if(unlocked) card.onclick=()=>startEscape(i);
+    else if(!playable) card.onclick=()=>openRange();
     el.appendChild(card);
   });
   go('s-escape');
@@ -2300,11 +2326,20 @@ function openEscape(){
 function startEscape(i){ playIntro(i, ()=>beginEscapeRun(i)); }
 function beginEscapeRun(i){
   const sc=ESCAPES[i];
+  const chk=bookScoped(byBook[Math.min(sc.book,NBOOKS)],10);
+  if(chk.kind==='range'){
+    toast('⛔ 你的学习范围里没有 Book '+sc.book+' 的课，这个副本暂时打不开');
+    return openEscape();
+  }
   E={i, sc, items:0, sub:0, idx:0, right:0, coins:0, wrongWords:[], mgOK:0,
-     queue:shuffle(scoped(byBook[Math.min(sc.book,NBOOKS)],10).slice()).slice(0, Math.max(80,(sc.need||20)*3))};
+     queue:[]};
+  const src=bookScoped(byBook[Math.min(sc.book,NBOOKS)],10);
+  E.srcKind=src.kind;
+  E.queue=shuffle(src.words.slice()).slice(0, Math.max(80,(sc.need||20)*3));
   initMode();
   $('ename').textContent=sc.emoji+' '+sc.name;
   $('estory').textContent=sc.story;
+  $('ename').title=srcText(E.srcKind, sc.book);
   $('emain').style.display='block'; $('eminigame').style.display='none';
   go('s-erun');
   renderItems();
