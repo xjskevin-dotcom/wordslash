@@ -282,6 +282,22 @@ body{padding-top:env(safe-area-inset-top);}
 .ubtn .tick{position:absolute;top:3px;right:5px;font-size:10px;color:var(--acc2);}
 .bkrow{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;}
 .bkrow button{flex:0 0 auto;}
+.hudbox{background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid #2e3568;border-radius:14px;padding:12px;margin-bottom:10px;}
+.track{position:relative;height:46px;background:#10143a;border-radius:12px;overflow:hidden;border:1px solid #2e3568;}
+.track .lane{position:absolute;top:0;bottom:0;left:0;right:0;background:repeating-linear-gradient(90deg,transparent 0 26px,#1b2150 26px 28px);}
+.track .me,.track .ch{position:absolute;top:7px;font-size:26px;transition:left .35s cubic-bezier(.3,1.4,.5,1);}
+.track .goal{position:absolute;right:4px;top:9px;font-size:22px;opacity:.85;}
+.codewrap{display:flex;gap:8px;justify-content:center;margin:6px 0;}
+.cdig{width:44px;height:56px;border-radius:10px;background:#10143a;border:2px solid #2e3568;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#3b4municipal;}
+.cdig{color:#4a5290;}
+.cdig.on{border-color:var(--acc2);background:#13372c;color:var(--acc2);animation:pop .3s ease;}
+.cdig.cur{border-color:var(--gold);}
+.mazegrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:6px 0;}
+.mcell{aspect-ratio:1;border-radius:6px;background:#10143a;border:1px solid #23295c;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.mcell.done{background:#13372c;border-color:var(--acc2);}
+.mcell.here{background:var(--acc);border-color:#fff;animation:pop .3s ease;}
+.forkbtns{display:flex;gap:8px;margin-top:8px;}
+.forkbtns .btn{flex:1;}
 </style>
 </head>
 <body>
@@ -520,6 +536,7 @@ body{padding-top:env(safe-area-inset-top);}
   <div class="timerbar"><i id="etimer" style="width:100%"></i></div>
   <div class="storybox" id="estory"></div>
   <div class="itemrow" id="eitems"></div>
+  <div id="ehud"></div>
   <div id="emain">
     <div class="qcard" style="padding:20px">
       <div class="qhint" id="egoal"></div>
@@ -667,7 +684,7 @@ const BADGES = [
  ['blitz25','🚀','极速传说','60秒极速挑战单次答对 25 题'],
  ['escape1','🚪','死里逃生','首次逃生成功'],
  ['escrush','⏱️','极限操作','剩余 60 秒以上完成逃生'],
- ['escall','🗝️','逃生大师','逃出全部 6 个场景'],
+ ['escall','🗝️','逃生大师','逃出全部 18 个副本'],
  ['book1','📘','第一册毕业','Book 1 全部通关'],
  ['allbook','👑','词汇之王','六册全部通关'],
  ['review50','🩹','知错能改','错词挑战消灭 50 个错词'],
@@ -676,36 +693,101 @@ const BADGES = [
 const BOSSES = ['👹','🐲','🧟','🦖','👺','💀'];
 /* 每件物品: [emoji, 名称, 使用小游戏文案] 小游戏类型按物品序号轮换: 时机/连点/顺序/时机/连点 */
 const ESCAPES = [
- {emoji:'🔒', name:'神秘密室', book:1, time:240,
+ /* ========== Book 1 ========== */
+ {emoji:'🔒', name:'神秘密室', book:1, time:240, mode:'collect', need:20, tier:1,
   story:'你在一间上锁的密室中醒来，门外传来越来越近的脚步声。桌上的字条写着：拼出单词，物品自现……',
   items:[['🔑','生锈钥匙','把钥匙插进锁孔，对准时机转动！'],['🔦','手电筒','快速甩动手电，把它甩亮！'],['🗺️','密室地图','按顺序拼合地图碎片！'],['🧰','工具箱','对准锁扣，一下撬开工具箱！'],['🪓','撬棍','用尽全力撬开铁门！']],
   win:'铁门被撬开，你冲进走廊，身后的脚步声渐渐远去——自由了！',
   lose:'门锁纹丝不动，脚步声在门口停下了……'},
- {emoji:'🚢', name:'沉没游轮', book:2, time:240,
+ {emoji:'🚌', name:'废弃校车', book:1, time:210, mode:'chase', need:22, tier:2,
+  chaser:'🐺', chaserName:'野狗群',
+  story:'荒野中的废弃校车成了野狗的巢穴。它们已经闻到你的气味——跑！答对拉开距离，答错它们就逼近一步。',
+  win:'你翻过铁丝网跌进公路，野狗在网后徘徊，不甘地嚎叫。',
+  lose:'野狗围了上来，你退进车厢死死抵住车门……'},
+ {emoji:'🏚️', name:'锈锁仓库', book:1, time:230, mode:'code', need:24, tier:3, digits:4,
+  story:'仓库的电子锁还剩最后一点电。四位密码刻在你背下的单词里——每拼对一批词，就点亮一位数字。',
+  win:'锁芯咔哒弹开，你推门而出，晨光扑面。',
+  lose:'电量耗尽，锁面彻底黑掉了……'},
+
+ /* ========== Book 2 ========== */
+ {emoji:'🚢', name:'沉没游轮', book:2, time:240, mode:'collect', need:25, tier:1,
   story:'游轮撞上暗礁，海水正从底舱涌入！你必须在甲板被淹没前找到逃生装备。',
   items:[['🦺','救生衣','看准时机扣上救生衣的卡扣！'],['🧭','指南针','用力甩动指南针让指针归位！'],['📻','无线电','按顺序输入求救频率！'],['🪜','绳梯','看准浪头间隙抛出绳梯！'],['🛟','救生筏','狂拉充气阀，给救生筏充气！']],
   win:'你跳上救生筏，游轮在你身后缓缓沉入海底。救援直升机来了！',
   lose:'海水漫过甲板，你抓住漂浮的木板，等待渺茫的救援……'},
- {emoji:'🌋', name:'火山营地', book:3, time:240,
+ {emoji:'🦈', name:'深海追猎', book:2, time:220, mode:'chase', need:26, tier:2,
+  chaser:'🦈', chaserName:'大白鲨',
+  story:'氧气瓶只剩一半，一道灰影在你身下绕圈。它在试探。每答对一次，你就往浮台游近一点。',
+  win:'你抓住浮台边缘翻身上去，鲨鳍在水面划了个圈，沉了下去。',
+  lose:'那道灰影猛地加速——你屏住了呼吸……'},
+ {emoji:'🗼', name:'灯塔迷径', book:2, time:250, mode:'maze', need:26, tier:3,
+  story:'灯塔的螺旋楼梯在雾里不断分岔。每答对一个词前进一层，岔路口要靠词义判断该走哪边。',
+  win:'你推开塔顶的门，灯光扫过海面，救援船正朝这边来。',
+  lose:'你在雾里绕回了原地，楼梯还是那道楼梯……'},
+
+ /* ========== Book 3 ========== */
+ {emoji:'🌋', name:'火山营地', book:3, time:240, mode:'collect', need:30, tier:1,
   story:'火山毫无预兆地喷发了！岩浆正吞噬营地，收拾装备立刻撤离！',
   items:[['🥾','登山靴','看准落点跳过岩浆裂缝！'],['🧯','防火毯','快速拍打火星，别让它烧起来！'],['⛏️','冰镐','按顺序凿出三个落脚点！'],['🎒','应急背包','抓住时机捞起滚落的背包！'],['📡','求救信标','疯狂摇发电柄，给信标供电！']],
   win:'信标发出信号，救援队在山脚接应，你回头看到营地被岩浆吞没——好险！',
   lose:'火山灰遮天蔽日，你被困在了半山腰……'},
- {emoji:'🧟', name:'丧尸医院', book:4, time:240,
+ {emoji:'🔥', name:'熔岩追逐', book:3, time:210, mode:'chase', need:30, tier:2,
+  chaser:'🌊', chaserName:'岩浆流',
+  story:'岩浆顺着山沟追下来了，速度比你快。唯一的办法是抄近路——每答对一个词，你就多抢出几步。',
+  win:'你跃过最后一道裂谷，岩浆在身后停住，凝成一道黑色的墙。',
+  lose:'热浪逼近，你退到了崖边……'},
+ {emoji:'♨️', name:'地热管道', book:3, time:240, mode:'code', need:32, tier:3, digits:5,
+  story:'泄压阀的五位序列码被高温烤花了。你得靠记忆一位一位试出来，蒸汽压力还在上升。',
+  win:'阀门泄压，白雾散去，通道尽头透进了光。',
+  lose:'压力表爆表，管道发出刺耳的呻吟……'},
+
+ /* ========== Book 4 ========== */
+ {emoji:'🧟', name:'丧尸医院', book:4, time:240, mode:'collect', need:30, tier:1,
   story:'医院爆发了不明病毒，走廊里传来拖沓的脚步声。找到解药和车钥匙，趁夜色突围！',
   items:[['💉','解药','手别抖！对准时机完成注射！'],['🗝️','病房钥匙','狂晃门把手，趁丧尸没到打开门！'],['🔋','备用电池','按顺序接好电池的三根线！'],['📟','对讲机','对准频段，一次调对救援频道！'],['🚗','车钥匙','狂点打火，引擎快点着啊！']],
   win:'引擎轰鸣，你撞开围栏冲出医院，后视镜里丧尸越来越远……',
   lose:'走廊尽头的影子越来越近，你躲进了储物柜……'},
- {emoji:'🏜️', name:'沙漠遗迹', book:5, time:240,
+ {emoji:'🏃', name:'长廊逃亡', book:4, time:200, mode:'chase', need:32, tier:2,
+  chaser:'🧟', chaserName:'尸潮',
+  story:'安全门在走廊尽头，身后是整层楼涌出来的尸潮。别回头，只管拼词往前冲。',
+  win:'你撞开安全门反手插上钢管，门板被砸得砰砰响，但它撑住了。',
+  lose:'尸潮追上了你，走廊灯一盏盏灭下去……'},
+ {emoji:'🚧', name:'隔离迷宫', book:4, time:250, mode:'maze', need:32, tier:3,
+  story:'隔离区被临时隔板改成了迷宫，每个路口只有一块贴着英文标识的门牌。认错词就走进死路。',
+  win:'最后一道气闸门滑开，消毒喷雾扑面而来——你出来了。',
+  lose:'你又转回了那面熟悉的墙，标识在应急灯下泛着红光……'},
+
+ /* ========== Book 5 ========== */
+ {emoji:'🏜️', name:'沙漠遗迹', book:5, time:240, mode:'collect', need:35, tier:1,
   story:'古墓机关已被触发，甬道正在坍塌！沙暴也在逼近，带上补给逃出遗迹！',
   items:[['💧','水壶','看准滴水的节奏接满水壶！'],['🧭','古罗盘','快速擦拭罗盘上的千年尘土！'],['📜','出口地图','按顺序解开卷轴的三道封印！'],['🕯️','火把','在风停的瞬间点燃火把！'],['🐪','骆驼缰绳','拉紧缰绳，稳住受惊的骆驼！']],
   win:'你翻身上骆驼冲出甬道，身后的遗迹轰然坍塌，扬起漫天黄沙。',
   lose:'甬道塌了，你在黑暗中摸索着另一条出路……'},
- {emoji:'🛰️', name:'失控空间站', book:6, time:240,
+ {emoji:'🌪️', name:'沙暴突围', book:5, time:210, mode:'chase', need:36, tier:2,
+  chaser:'🌪️', chaserName:'沙暴墙',
+  story:'一堵几十米高的沙墙正横扫过来。绿洲就在前方，能不能跑赢，看你拼词的手速。',
+  win:'你滚进绿洲的石屋，沙暴擦着门框呼啸而过。',
+  lose:'沙子灌进口鼻，你蜷缩在一块岩石背后……'},
+ {emoji:'🔭', name:'星象密室', book:5, time:240, mode:'code', need:36, tier:3, digits:5,
+  story:'穹顶的星图对应着一组数字。祭司留下的谜题写在词义里——答对一批，亮起一颗星。',
+  win:'五颗星同时亮起，石门向内翻转，露出通往地面的阶梯。',
+  lose:'星图暗了下去，穹顶重新归于沉寂……'},
+
+ /* ========== Book 6 ========== */
+ {emoji:'🛰️', name:'失控空间站', book:6, time:240, mode:'collect', need:40, tier:1,
   story:'空间站被陨石击中，氧气正在泄漏！警报声中，你要集齐装备进入逃生舱返回地球！',
   items:[['🧑‍🚀','宇航服','对准时机锁紧头盔密封环！'],['🔧','扳手','疯狂拧紧泄漏的阀门！'],['🫧','氧气罐','按顺序接通三条供氧管！'],['💾','导航芯片','芯片飘过来了，看准时机抓住它！'],['🚀','逃生舱钥匙','狂按点火序列，发射！']],
   win:'逃生舱脱离空间站，透过舷窗，蔚蓝的地球越来越近。欢迎回家，词汇英雄！',
   lose:'氧气耗尽前，你躲进了气闸舱，等待下一次机会……'},
+ {emoji:'👾', name:'失重追逐', book:6, time:210, mode:'chase', need:40, tier:2,
+  chaser:'👾', chaserName:'检修机器人',
+  story:'失控的检修机器人认定你是故障源。零重力走廊里，它比你灵活得多——只能靠拼词抢通道。',
+  win:'你翻进气闸舱按下关闭，机械臂卡在门缝里，火花四溅。',
+  lose:'机械臂扣住了你的脚踝……'},
+ {emoji:'🌌', name:'母舰迷舱', book:6, time:260, mode:'maze', need:42, tier:3,
+  story:'母舰的舱室每隔一分钟就重新排列一次。舱门上的英文标识是唯一线索，认错一次就被送回起点。',
+  win:'最后一道舱门滑开，逃生舱静静停在那里。你系好安全带，按下发射。',
+  lose:'舱室又变了，你回到了那个熟悉的编号前……'},
 ];
 const WPI = 3; // 每件物品需拼对的单词数
 
@@ -1060,7 +1142,7 @@ function renderMapTab(){
   }
   const em=$('esclistmini');
   ESCAPES.forEach((sc,idx)=>{
-    const won=!!S.escape[idx], unlocked=idx===0||!!S.escape[idx-1];
+    const won=!!S.escape[idx], unlocked=escUnlocked(idx);
     const d=document.createElement('div'); d.className='rowline';
     d.innerHTML='<div>'+sc.emoji+' '+sc.name+'</div><div style="color:'+(won?'var(--green)':unlocked?'var(--acc2)':'var(--sub)')+'">'+(won?'已逃出 ✓':unlocked?'可挑战 ›':'🔒')+'</div>';
     if(unlocked) d.onclick=()=>startEscape(idx);
@@ -2172,20 +2254,44 @@ function endBoss(win){
 /* ================= 逃生模式 ================= */
 let E=null, eTick=null;
 function fmtT(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+const MODEINFO={
+  collect:{icon:'🎒', name:'收集', desc:'集齐 5 件逃生物品，每件都要过一个操作小游戏'},
+  chase:  {icon:'🏃', name:'追逐', desc:'答对拉开距离，答错被逼近 3 步，被追上就失败'},
+  code:   {icon:'🔢', name:'破译', desc:'答对一批点亮一位密码，答错当前这位归零'},
+  maze:   {icon:'🧭', name:'迷宫', desc:'答对前进一格，岔路口靠词义选门，选错退回'}
+};
+function escUnlocked(i){
+  if(i===0) return true;
+  const sc=ESCAPES[i], prev=ESCAPES[i-1];
+  if(prev.book===sc.book) return !!S.escape[i-1];
+  return ESCAPES.some((x,k)=>x.book===sc.book-1 && S.escape[k]);
+}
 function openEscape(){
   const _r=planRange();
-  $('esctag').textContent=(_r? '📍 词取自你选中的 '+_r.sel.length+' 课 · ':'')+'拼出单词夺取逃生物品 · 集齐 5 件逃出生天';
+  const total=ESCAPES.length, won=ESCAPES.filter((s,i)=>S.escape[i]).length;
+  $('esctag').textContent=(_r? '📍 词取自你选中的 '+_r.sel.length+' 课 · ':'')+
+    '4 种玩法 · '+total+' 个副本 · 已逃出 '+won+'/'+total;
   const el=$('esclist'); el.innerHTML='';
+  let curBook=0;
   ESCAPES.forEach((sc,i)=>{
-    const done=!!S.escape[i];
-    const unlocked = i===0 || !!S.escape[i-1];
+    if(sc.book!==curBook){
+      curBook=sc.book;
+      const hd=document.createElement('div');
+      hd.className='sect'; hd.textContent='📕 Book '+curBook+' 词汇';
+      el.appendChild(hd);
+    }
+    const done=!!S.escape[i], unlocked=escUnlocked(i);
+    const mi=MODEINFO[sc.mode||'collect'];
+    const tierTag=['','入门','进阶','终局'][sc.tier||1];
     const card=document.createElement('div');
     card.className='bookcard esc'+(done?' done':'')+(unlocked?'':' locked');
-    card.innerHTML=`<div style="flex:1">
-      <div class="bt">${sc.emoji} ${sc.name} ${done?'✅':''}</div>
-      <div class="bs">Book ${sc.book} 词汇 · 5 件逃生物品 · 时限 ${fmtT(sc.time)} · 拼错 -15 秒</div>
-      <div class="bs" style="margin-top:2px">${sc.items.map(it=>it[0]).join(' ')}</div></div>
-      <div class="pct">${done?'已逃出':(unlocked?'▶':'🔒')}</div>`;
+    card.innerHTML='<div style="flex:1">'+
+      '<div class="bt">'+sc.emoji+' '+sc.name+' '+(done?'✅':'')+
+        '<span style="font-size:11px;color:var(--gold);margin-left:6px">'+tierTag+'</span></div>'+
+      '<div class="bs" style="color:var(--acc2);margin-top:2px">'+mi.icon+' '+mi.name+'玩法 · '+sc.need+' 词 · 时限 '+fmtT(sc.time)+'</div>'+
+      '<div class="bs" style="margin-top:2px">'+mi.desc+'</div>'+
+      ((sc.mode||'collect')==='collect'? '<div class="bs" style="margin-top:2px">'+sc.items.map(it=>it[0]).join(' ')+'</div>':'')+
+      '</div><div class="pct">'+(done?'已逃出':(unlocked?'▶':'🔒'))+'</div>';
     if(unlocked) card.onclick=()=>startEscape(i);
     el.appendChild(card);
   });
@@ -2195,12 +2301,14 @@ function startEscape(i){ playIntro(i, ()=>beginEscapeRun(i)); }
 function beginEscapeRun(i){
   const sc=ESCAPES[i];
   E={i, sc, items:0, sub:0, idx:0, right:0, coins:0, wrongWords:[], mgOK:0,
-     queue:shuffle(scoped(byBook[Math.min(sc.book,NBOOKS)],10).slice()).slice(0,80)};
+     queue:shuffle(scoped(byBook[Math.min(sc.book,NBOOKS)],10).slice()).slice(0, Math.max(80,(sc.need||20)*3))};
+  initMode();
   $('ename').textContent=sc.emoji+' '+sc.name;
   $('estory').textContent=sc.story;
   $('emain').style.display='block'; $('eminigame').style.display='none';
   go('s-erun');
   renderItems();
+  renderHUD();
   askE();
   startTimer(sc.time,'etimer',onEscTimeout);
   clearInterval(eTick);
@@ -2211,21 +2319,153 @@ function beginEscapeRun(i){
 }
 function renderItems(){
   const el=$('eitems'); el.innerHTML='';
+  if(!E||E.mode!=='collect'||!E.sc.items) return;
   E.sc.items.forEach((it,idx)=>{
     const d=document.createElement('div');
     d.className='itslot'+(idx<E.items?' got':idx===E.items?' cur':'');
-    d.innerHTML=it[0]+(idx===E.items?`<div class="dots">${'●'.repeat(E.sub)}${'○'.repeat(WPI-E.sub)}</div>`:'');
+    d.innerHTML=it[0]+(idx===E.items?`<div class="dots">${'●'.repeat(E.sub)}${'○'.repeat(Math.max(0,escWPI()-E.sub))}</div>`:'');
     d.title=it[1];
     el.appendChild(d);
   });
 }
 function curEW(){ return E.queue[E.idx % E.queue.length]; }
+/* ================= 逃生模式引擎 ================= */
+function escNeed(){ return (E&&E.sc.need)||15; }
+function escWPI(){ return (E&&E.wpi)||WPI; }
+function initMode(){
+  const m=E.sc.mode||'collect';
+  E.mode=m; E.done=0;
+  if(m==='collect'){
+    const n=(E.sc.items||[]).length||5;
+    E.wpi=Math.max(WPI, Math.ceil(escNeed()/n));
+  }
+  if(m==='chase'){ E.dist=8; E.maxDist=14; }
+  if(m==='code'){ E.digits=E.sc.digits||4; E.slot=0; E.slotHit=0;
+    E.perSlot=Math.max(2,Math.ceil(escNeed()/E.digits));
+    E.code=[]; for(let k=0;k<E.digits;k++) E.code.push(Math.floor(Math.random()*10)); }
+  if(m==='maze'){ E.cell=0; E.cells=escNeed(); E.fork=null; E.forkEvery=5; }
+}
+function renderHUD(){
+  const el=$('ehud'); if(!el||!E) return;
+  const m=E.mode;
+  if(m==='collect'){ el.innerHTML=''; return; }
+  if(m==='chase'){
+    const pct=Math.max(0,Math.min(100, (E.dist/E.maxDist)*78));
+    el.innerHTML='<div class="hudbox"><div class="bs" style="margin-bottom:6px">🏃 逃脱进度 <b style="color:var(--acc2)">'+E.done+'/'+escNeed()+'</b> · 距离 '+E.dist+' 步'+(E.dist<=3?' <span style="color:var(--red)">危险！</span>':'')+'</div>'+
+      '<div class="track"><div class="lane"></div>'+
+      '<div class="ch" style="left:'+Math.max(0,pct-22)+'%">'+(E.sc.chaser||'👹')+'</div>'+
+      '<div class="me" style="left:'+pct+'%">🏃</div>'+
+      '<div class="goal">🚪</div></div>'+
+      '<div class="bar" style="margin-top:8px"><i style="width:'+Math.round(E.done/escNeed()*100)+'%"></i></div></div>';
+    return;
+  }
+  if(m==='code'){
+    let d='';
+    for(let k=0;k<E.digits;k++)
+      d+='<div class="cdig'+(k<E.slot?' on':k===E.slot?' cur':'')+'">'+(k<E.slot? E.code[k] : '?')+'</div>';
+    el.innerHTML='<div class="hudbox"><div class="bs" style="margin-bottom:6px">🔢 破译密码 · 第 '+(E.slot+1)+' 位还差 <b style="color:var(--gold)">'+(E.perSlot-E.slotHit)+'</b> 词</div>'+
+      '<div class="codewrap">'+d+'</div>'+
+      '<div class="bs" style="text-align:center">拼错会让当前这位归零</div></div>';
+    return;
+  }
+  if(m==='maze'){
+    let g='';
+    for(let k=0;k<E.cells;k++)
+      g+='<div class="mcell'+(k<E.cell?' done':k===E.cell?' here':'')+'">'+(k===E.cell?'🧍':k<E.cell?'·':'')+'</div>';
+    el.innerHTML='<div class="hudbox"><div class="bs" style="margin-bottom:6px">🧭 迷宫进度 <b style="color:var(--acc2)">'+E.cell+'/'+E.cells+'</b> · 已答 '+E.done+'/'+escNeed()+'</div>'+
+      '<div class="mazegrid">'+g+'</div></div>';
+    return;
+  }
+}
+function modeGoalText(){
+  const m=E.mode;
+  if(m==='chase') return '🏃 拼对甩开 '+(E.sc.chaserName||'追兵')+' · 还需 '+(escNeed()-E.done)+' 词';
+  if(m==='code')  return '🔢 破译第 '+(E.slot+1)+'/'+E.digits+' 位密码 · 还差 '+(E.perSlot-E.slotHit)+' 词';
+  if(m==='maze')  return '🧭 前进一格 · 还需 '+(escNeed()-E.done)+' 词';
+  const it=E.sc.items[E.items];
+  return '🎯 目标物品：'+it[0]+' '+it[1]+'（还差 '+(escWPI()-E.sub)+' 词）';
+}
+/* 非收集模式：答对推进 */
+function modeAdvance(w){
+  E.done++;
+  const m=E.mode;
+  if(m==='chase'){
+    E.dist=Math.min(E.maxDist, E.dist+1);
+    if(E.done>=escNeed()) return finishMode(true);
+  }else if(m==='code'){
+    E.slotHit++;
+    if(E.slotHit>=E.perSlot){
+      E.slotHit=0; E.slot++;
+      sndItem(); toast('🔢 第 '+E.slot+' 位密码点亮：'+E.code[E.slot-1]);
+      if(E.slot>=E.digits) return finishMode(true);
+    }
+  }else if(m==='maze'){
+    E.cell++;
+    if(E.cell>=E.cells || E.done>=escNeed()) return finishMode(true);
+    if(E.cell % E.forkEvery===0){ return showFork(); }
+  }
+  renderHUD();
+  setTimeout(askE, 420);
+}
+/* 非收集模式：答错惩罚 */
+function modePenalty(){
+  const m=E.mode;
+  if(m==='chase'){
+    E.dist-=3;
+    if(E.dist<=0){ renderHUD(); finishMode(false); return true; }
+  }else if(m==='code'){
+    if(E.slotHit>0) toast('💥 第 '+(E.slot+1)+' 位进度归零');
+    E.slotHit=0;
+  }else if(m==='maze'){
+    E.cell=Math.max(0,E.cell-1);
+  }
+  renderHUD();
+  return false;
+}
+function finishMode(win){
+  if(!E) return;
+  E.over=true;
+  stopTimer();
+  if(win){ playClown('win', ()=>{ if(E) endEscape(true); }); }
+  else { endEscape(false); }
+}
+/* 迷宫岔路：用词义选出口 */
+function showFork(){
+  const pool=scopePool();
+  const right=curEW();
+  const others=shuffle(pool.filter(x=>x.w!==right.w && cnShort(x.cn)!==cnShort(right.cn))).slice(0,2);
+  const opts=shuffle([right].concat(others));
+  E.fork=right;
+  $('eans').innerHTML='';
+  $('egoal').textContent='🚪 三扇门 · 选出意思是「'+cnShort(right.cn)+'」的那扇';
+  $('ecn').textContent='🧭 岔路口';
+  $('ephon').textContent=''; $('ehint').textContent='选错退回一格';
+  const box=$('eans');
+  box.innerHTML='<div class="forkbtns">'+opts.map(o=>
+    '<button class="btn ghost" onclick="pickFork(\''+o.w.replace(/'/g,"")+'\')">🚪 '+o.w+'</button>').join('')+'</div>';
+  $('espellin').disabled=true;
+}
+function pickFork(wstr){
+  if(!E||!E.fork) return;
+  const ok = wstr===E.fork.w.replace(/'/g,"");
+  const inp=$('espellin'); inp.disabled=false;
+  if(ok){ sndItem(); toast('🚪 走对了！'); E.coins+=8; }
+  else{
+    sndWrong(); tLeft=Math.max(1,tLeft-10);
+    E.cell=Math.max(0,E.cell-1);
+    toast('❌ 死路，退回一格（-10 秒）');
+  }
+  E.fork=null; E.idx++;
+  renderHUD();
+  $('eans').innerHTML='';
+  if(E.cell>=E.cells || E.done>=escNeed()) return finishMode(true);
+  setTimeout(askE, 350);
+}
 function askE(){
   if(!E) return;
   const w=curEW();
   E.qmode = Math.random()<.35? 'listen':'normal';
-  const it=E.sc.items[E.items];
-  $('egoal').textContent='🎯 目标物品：'+it[0]+' '+it[1]+'（还差 '+(WPI-E.sub)+' 词）';
+  $('egoal').textContent=modeGoalText();
   if(E.qmode==='listen'){
     $('ecn').textContent='👂 纯听力 · 只听发音，拼出单词';
     $('ephon').textContent='';
@@ -2241,18 +2481,20 @@ function askE(){
   speak(w.w);
 }
 function speakE(slow){ speak(curEW().w, slow); }
-function submitE(){ if(!E||MG) return; const v=$('espellin').value; if(!norm(v)) return; judgeE(v); }
+function submitE(){ if(!E||MG||E.over) return; const v=$('espellin').value; if(!norm(v)) return; judgeE(v); }
 function judgeE(v){
-  if(!E) return;
+  if(!E || E.over) return;
   const w=curEW();
   const right = norm(v)===norm(w.w);
   const inp=$('espellin');
   E.idx++;
   if(right){
-    E.right++; E.sub++; E.coins+=6; (E.itemWords=E.itemWords||[]).push(w);
+    E.right++; E.coins+=6;
     if(E.qmode==='listen'){ tLeft=Math.min(E.sc.time, tLeft+5); E.coins+=4; fly('+5s 👂', $('espellin')); }
     sndHit(); fly('✅', inp);
-    if(E.sub>=WPI){
+    if(E.mode!=='collect'){ return modeAdvance(w); }
+    E.sub++; (E.itemWords=E.itemWords||[]).push(w);
+    if(E.sub>=escWPI()){
       E.sub=0; E.items++;
       sndItem();
       renderItems();
@@ -2260,6 +2502,7 @@ function judgeE(v){
       toast('获得 '+got[0]+' '+got[1]+'！');
       inp.disabled=true;
       const last = E.items>=E.sc.items.length;
+      if(last) E.over=true;
       setTimeout(()=>{
         if(!E) return;
         stopTimer();
@@ -2281,6 +2524,7 @@ function judgeE(v){
     fly('-15s 💥', inp, true);
     S.wrong[w.w]=(S.wrong[w.w]||0)+1;
     E.wrongWords.push(w);
+    if(E.mode!=='collect' && modePenalty()) return;
     $('eans').innerHTML=`<div style="text-align:center;color:var(--red);font-weight:700;margin-top:10px">正确拼写：<span style="font-size:22px;letter-spacing:2px">${w.w}</span> — ${cnShort(w.cn)}</div>
       <div style="text-align:center;margin-top:10px"><button class="tipbtn" onclick="showTip('${w.w}')">🧠 讲解记法</button></div>`;
     save();
@@ -2691,7 +2935,7 @@ function endEscape(win){
     earned = E.items*20 + remain + E.coins;
     add('escape1');
     if(remain>=60) add('escrush');
-    if(escWins()>=6) add('escall');
+    if(escWins()>=ESCAPES.length) add('escall');
   }else{
     earned = E.items*10 + Math.floor(E.coins/2);
   }
