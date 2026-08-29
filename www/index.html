@@ -298,6 +298,13 @@ body{padding-top:env(safe-area-inset-top);}
 .mcell.here{background:var(--acc);border-color:#fff;animation:pop .3s ease;}
 .forkbtns{display:flex;gap:8px;margin-top:8px;}
 .forkbtns .btn{flex:1;}
+.escenewrap{position:relative;border-radius:16px;overflow:hidden;margin:8px 0 10px;border:1px solid #2e3568;box-shadow:0 6px 22px rgba(0,0,0,.4);}
+#escene{display:block;width:100%;height:auto;}
+.esceneov{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .18s;}
+.esceneov.ok{background:radial-gradient(circle at 50% 60%,rgba(0,212,166,.45),transparent 70%);opacity:1;}
+.esceneov.bad{background:radial-gradient(circle at 50% 60%,rgba(255,84,112,.5),transparent 70%);opacity:1;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.escenewrap.shake{animation:shake .38s ease;}
 </style>
 </head>
 <body>
@@ -534,6 +541,8 @@ body{padding-top:env(safe-area-inset-top);}
 <div class="screen" id="s-erun">
   <div class="etimewrap"><span id="ename">🔒 神秘密室</span><span class="etime" id="etimetxt">4:00</span></div>
   <div class="timerbar"><i id="etimer" style="width:100%"></i></div>
+  <div class="escenewrap" id="escenewrap"><canvas id="escene"></canvas>
+    <div class="esceneov" id="esceneov"></div></div>
   <div class="storybox" id="estory"></div>
   <div class="itemrow" id="eitems"></div>
   <div id="ehud"></div>
@@ -2344,6 +2353,7 @@ function beginEscapeRun(i){
   go('s-erun');
   renderItems();
   renderHUD();
+  escSceneStart();
   askE();
   startTimer(sc.time,'etimer',onEscTimeout);
   clearInterval(eTick);
@@ -2364,6 +2374,156 @@ function renderItems(){
   });
 }
 function curEW(){ return E.queue[E.idx % E.queue.length]; }
+/* ================= 逃生实时场景 ================= */
+/* 六册六套：旧宅 / 海洋 / 火山 / 医院 / 沙漠 / 太空
+   画面随「进度」与「危险度」变化，答对答错有即时反馈 */
+const ESCTHEME=[
+ {sky:['#241536','#0b0714'], gnd:'#1a1026', accent:'220,180,255', dust:'rgba(255,240,200,.55)'},
+ {sky:['#06304f','#01101d'], gnd:'#062033', accent:'120,210,255', dust:'rgba(190,235,255,.5)'},
+ {sky:['#4a1400','#1a0600'], gnd:'#2a0d02', accent:'255,140,40',  dust:'rgba(255,180,90,.65)'},
+ {sky:['#0d2216','#040c08'], gnd:'#0a1a12', accent:'90,255,150',  dust:'rgba(160,255,200,.4)'},
+ {sky:['#4a3410','#171004'], gnd:'#3a2a0c', accent:'255,200,90',  dust:'rgba(255,225,160,.6)'},
+ {sky:['#080b2e','#010210'], gnd:'#0a0d24', accent:'120,170,255', dust:'rgba(210,230,255,.7)'}
+];
+let ESC_RAF=0, ESC_T=0, ESC_PARTS=[], ESC_LOW=false;
+function escSceneStop(){ if(ESC_RAF){ cancelAnimationFrame(ESC_RAF); ESC_RAF=0; } }
+function escSceneStart(){
+  escSceneStop();
+  const cv=$('escene'); if(!cv||!E) return;
+  try{
+    ESC_LOW = (navigator.hardwareConcurrency||4)<=4 ||
+      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }catch(e){ ESC_LOW=false; }
+  const wrap=$('escenewrap');
+  const w=Math.max(280,(wrap&&wrap.clientWidth)||320);
+  const dpr=Math.min(window.devicePixelRatio||1, ESC_LOW?1:2);
+  cv.width=Math.round(w*dpr); cv.height=Math.round(w*0.42*dpr);
+  cv.style.height=Math.round(w*0.42)+'px';
+  const ctx=cv.getContext('2d'); if(ctx.setTransform) ctx.setTransform(dpr,0,0,dpr,0,0);
+  ESC_PARTS=[];
+  const n=ESC_LOW?10:26;
+  for(let i=0;i<n;i++) ESC_PARTS.push({x:Math.random()*w, y:Math.random()*(w*0.42), v:.2+Math.random()*.9, r:.6+Math.random()*1.8, ph:Math.random()*6.28});
+  ESC_T=0;
+  const loop=()=>{
+    if(!E){ escSceneStop(); return; }
+    ESC_T+=ESC_LOW?0.45:1;
+    try{ drawEscScene(ctx, w, w*0.42); }catch(err){}
+    ESC_RAF=requestAnimationFrame(loop);
+  };
+  ESC_RAF=requestAnimationFrame(loop);
+}
+/* 进度 0..1 */
+function escProg(){
+  if(!E) return 0;
+  const m=E.mode;
+  if(m==='collect') return Math.min(1,(E.items*escWPI()+E.sub)/Math.max(1,escNeed()));
+  if(m==='maze') return Math.min(1, E.cell/Math.max(1,E.cells));
+  return Math.min(1, E.done/Math.max(1,escNeed()));
+}
+/* 危险度 0..1：时间压力 + 模式特有 */
+function escDanger(){
+  if(!E) return 0;
+  const tp = 1 - Math.max(0, Math.min(1, tLeft/Math.max(1,E.sc.time)));
+  if(E.mode==='chase') return Math.max(tp, 1 - E.dist/Math.max(1,E.maxDist));
+  return tp;
+}
+function drawEscScene(c,W,H){
+  const art=escArt(E.i), th=ESCTHEME[art]||ESCTHEME[0];
+  const p=escProg(), dg=escDanger(), t=ESC_T*0.016;
+  /* 天空 */
+  const g=c.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,th.sky[0]); g.addColorStop(1,th.sky[1]);
+  c.fillStyle=g; c.fillRect(0,0,W,H);
+  /* 危险泛红 */
+  if(dg>0.25){
+    c.fillStyle='rgba(255,40,40,'+((dg-0.25)*0.34*(0.75+0.25*Math.sin(t*4))).toFixed(3)+')';
+    c.fillRect(0,0,W,H);
+  }
+  /* 粒子 */
+  c.save();
+  ESC_PARTS.forEach(q=>{
+    q.y-=q.v*(art===2?1.5:art===1?-0.7:0.6);
+    q.x+=Math.sin(t+q.ph)*0.35 + (art===4? 1.2+dg*2 : 0);
+    if(q.y<-4) q.y=H+4; if(q.y>H+4) q.y=-4;
+    if(q.x>W+4) q.x=-4; if(q.x<-4) q.x=W+4;
+    c.globalAlpha=.35+.4*Math.sin(t*2+q.ph);
+    c.fillStyle=th.dust;
+    c.beginPath(); c.arc(q.x,q.y,q.r,0,6.28); c.fill();
+  });
+  c.restore(); c.globalAlpha=1;
+  const gy=H*0.72;
+  /* 各主题专属绘制 */
+  if(art===1){ /* 海洋：水位随危险上涨 */
+    const wl=H*(0.78-0.34*dg);
+    c.fillStyle='rgba(0,150,220,.55)';
+    c.beginPath(); c.moveTo(0,wl);
+    for(let x=0;x<=W;x+=8) c.lineTo(x, wl+Math.sin(x*0.05+t*2)*4);
+    c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
+    c.fillStyle='rgba(255,255,255,.25)';
+    for(let x=0;x<W;x+=26) c.fillRect(x,wl+Math.sin(x*0.05+t*2)*4,14,1.5);
+    c.font='20px serif'; c.fillText('🌙',W-34,26);
+  }else if(art===2){ /* 火山：岩浆自下逼近 */
+    const lv=H*(1-0.16-0.3*dg);
+    const lg=c.createLinearGradient(0,lv,0,H);
+    lg.addColorStop(0,'rgba(255,190,60,.95)'); lg.addColorStop(1,'rgba(190,30,0,.95)');
+    c.fillStyle=lg;
+    c.beginPath(); c.moveTo(0,lv);
+    for(let x=0;x<=W;x+=10) c.lineTo(x, lv+Math.sin(x*0.06+t*3)*5);
+    c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
+  }else if(art===5){ /* 太空：星轨 + 舱体 */
+    c.fillStyle='rgba(255,255,255,.9)';
+    for(let i=0;i<(ESC_LOW?14:30);i++){
+      const sx=(i*97+t*22*(1+dg))%W, sy=(i*53)%(H*0.7);
+      c.globalAlpha=.4+.6*Math.sin(t*3+i); c.fillRect(sx,sy,1.6,1.6);
+    }
+    c.globalAlpha=1;
+    c.fillStyle='#1b2350'; c.fillRect(0,H*0.8,W,H*0.2);
+    c.strokeStyle='rgba('+th.accent+',.5)'; c.lineWidth=1;
+    for(let x=10;x<W;x+=34){ c.beginPath(); c.moveTo(x,H*0.8); c.lineTo(x,H); c.stroke(); }
+  }else{ /* 旧宅 / 医院 / 沙漠：地面 + 远景剪影 */
+    c.fillStyle=th.gnd; c.fillRect(0,gy,W,H-gy);
+    c.fillStyle='rgba(0,0,0,.45)';
+    const hills=art===4?5:4;
+    for(let i=0;i<hills;i++){
+      const bx=(i*W/hills), bw=W/hills*1.3;
+      c.beginPath(); c.moveTo(bx,gy);
+      c.quadraticCurveTo(bx+bw/2, gy-(art===4?18:34)-Math.sin(i*2+t*.4)*4, bx+bw, gy);
+      c.closePath(); c.fill();
+    }
+  }
+  /* 进度路径 */
+  c.strokeStyle='rgba('+th.accent+',.35)'; c.lineWidth=2; c.setLineDash([6,7]);
+  c.beginPath(); c.moveTo(12,gy+12); c.lineTo(W-12,gy+12); c.stroke(); c.setLineDash([]);
+  /* 出口 */
+  c.font='22px serif'; c.textAlign='center';
+  c.globalAlpha=.6+.4*Math.sin(t*3);
+  c.fillText('🚪', W-20, gy+20);
+  c.globalAlpha=1;
+  /* 玩家：随进度前进 */
+  const px=16+(W-52)*p;
+  c.font='24px serif';
+  c.fillText('🧍', px, gy+20+Math.sin(t*6)*1.5);
+  /* 威胁：随危险度逼近 */
+  const threat=(E.sc.chaser)||['👤','🌊','🔥','🧟','🌪️','👾'][art];
+  const tx=Math.max(6, px-14-(1-dg)*(W*0.5));
+  c.globalAlpha=.35+.65*dg;
+  c.font=(18+8*dg).toFixed(0)+'px serif';
+  c.fillText(threat, tx, gy+20+Math.sin(t*5+1)*2);
+  c.globalAlpha=1;
+  /* 顶部氛围文字 */
+  c.textAlign='left'; c.font='600 11px -apple-system,sans-serif';
+  c.fillStyle='rgba(255,255,255,.5)';
+  c.fillText(dg>0.7? '⚠ 危险逼近' : dg>0.4? '⏳ 时间不多了' : '🚩 保持节奏', 10, 16);
+  c.textAlign='center';
+  c.fillStyle='rgba('+th.accent+',.8)';
+  c.fillText(Math.round(p*100)+'%', W/2, 16);
+  c.textAlign='left';
+}
+function escFlash(ok){
+  const ov=$('esceneov'), wr=$('escenewrap');
+  if(ov){ ov.className='esceneov '+(ok?'ok':'bad'); setTimeout(()=>{ if(ov) ov.className='esceneov'; }, 190); }
+  if(!ok && wr){ wr.classList.add('shake'); setTimeout(()=>wr.classList.remove('shake'), 400); }
+}
 /* ================= 逃生模式引擎 ================= */
 function escNeed(){ return (E&&E.sc.need)||15; }
 function escWPI(){ return (E&&E.wpi)||WPI; }
@@ -2526,7 +2686,7 @@ function judgeE(v){
   if(right){
     E.right++; E.coins+=6;
     if(E.qmode==='listen'){ tLeft=Math.min(E.sc.time, tLeft+5); E.coins+=4; fly('+5s 👂', $('espellin')); }
-    sndHit(); fly('✅', inp);
+    sndHit(); fly('✅', inp); escFlash(true);
     if(E.mode!=='collect'){ return modeAdvance(w); }
     E.sub++; (E.itemWords=E.itemWords||[]).push(w);
     if(E.sub>=escWPI()){
@@ -2554,7 +2714,7 @@ function judgeE(v){
     }
   }else{
     tLeft=Math.max(1, tLeft-15);
-    sndWrong();
+    sndWrong(); escFlash(false);
     inp.classList.add('flashwrong'); inp.disabled=true;
     fly('-15s 💥', inp, true);
     S.wrong[w.w]=(S.wrong[w.w]||0)+1;
@@ -2566,7 +2726,7 @@ function judgeE(v){
     setTimeout(askE, 2200);
   }
 }
-function quitEscape(){ stopTimer(); clearInterval(eTick); killMini(); csAbort(); save(); E=null; openEscape(); }
+function quitEscape(){ stopTimer(); clearInterval(eTick); killMini(); csAbort(); escSceneStop(); save(); E=null; openEscape(); }
 $('espellin').addEventListener('keydown',e=>{ if(e.key==='Enter') submitE(); });
 
 /* ---------- 物品使用小游戏 ---------- */
@@ -2960,7 +3120,7 @@ function endMini(ok){
 }
 
 function endEscape(win){
-  stopTimer(); clearInterval(eTick); killMini();
+  stopTimer(); clearInterval(eTick); killMini(); escSceneStop();
   const sc=E.sc, remain=Math.max(0,Math.floor(tLeft));
   const badgeMsgs=[];
   const add=id=>{ const m=grantBadge(id); if(m) badgeMsgs.push(m); };
@@ -5065,7 +5225,11 @@ try{ if('serviceWorker' in navigator && location.protocol!=='file:') window.addE
 let deferredPrompt=null;
 try{ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;}); }catch(e){}
 function doInstall(){ if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;} else toast('浏览器菜单选「添加到主屏幕」'); }
-document.addEventListener('visibilitychange',()=>{ try{save();}catch(e){} });
+document.addEventListener('visibilitychange',()=>{
+  try{save();}catch(e){}
+  try{ if(document.hidden) escSceneStop(); else if(E && CURSCR==='s-erun') escSceneStart(); }catch(e){}
+});
+window.addEventListener('resize',()=>{ try{ if(E && CURSCR==='s-erun') escSceneStart(); }catch(e){} });
 boot();
 scheduleRemind();
 checkRemindWeb();
