@@ -2752,7 +2752,7 @@ function startMini(itemIdx, done){
   const type=['timing','mash','order','timing','mash'][itemIdx%5];
   MG={type, done, tries:0, count:0, expected:1, mistakes:0};
   MG.words=(E&&E.itemWords)? E.itemWords.slice(-3):[]; if(E) E.itemWords=[];
-  MG.si=(E?E.i:0); MG.itemIdx=itemIdx;
+  MG.si=escArt(E?E.i:0); MG.itemIdx=itemIdx;   /* 美术索引=册主题 */
   $('emain').style.display='none';
   $('eminigame').style.display='block';
   const head=`<div class="qhint" style="color:var(--gold);font-weight:700;font-size:15px">🎬 使用物品：${it[0]} ${it[1]}</div>
@@ -2760,7 +2760,7 @@ function startMini(itemIdx, done){
   if(type==='timing'){
     MG.center=32+Math.random()*36; MG.pos=0; MG.dir=1;
     MG.item=it[0]; MG.locked=false; MG.winT=0; MG.failT=0;
-    MG.scn = MGS[escArt(E?E.i:0)+'-'+itemIdx] || {bg:'🚪',tc:'🔒',to:'🔓'};
+    MG.scn = MGS[MG.si+'-'+itemIdx] || {bg:'🚪',tc:'🔒',to:'🔓'};
     $('mgcard').innerHTML=head+
       `<canvas id="mgscene" style="display:block;margin:10px auto 0;max-width:100%"></canvas>
       <div class="mgbar"><div class="mgzone" style="left:${(MG.center-11).toFixed(1)}%;width:22%"></div><div class="mgmark" id="mgmark" style="left:0%"></div></div>
@@ -3224,7 +3224,7 @@ function csDraw(){
     c.fillText(b.e, b.x, H*b.y); c.globalAlpha=1;
   });
   /* 地面色带 / 海面(关卡2在海里游) */
-  const aquatic=((E? E.i:0)%CHASE.length)===1;
+  const aquatic=escArt(E? E.i:0)===1;   /* 水下场景按册主题判定 */
   if(aquatic){
     c.fillStyle='rgba(8,70,125,.8)'; c.fillRect(0,gy+6,W,H);
     c.strokeStyle='rgba(170,225,255,.7)'; c.lineWidth=3;
@@ -3611,6 +3611,7 @@ function csDrawIntro(){
 /* ===== 前剧视频: 平静 → 撞击震动 → 灾变(第一视角实景) ===== */
 function csDrawBeats(script, si){
   const c=CS.c, cfg=CS.cfg, sc=CS.sc;
+  const ai=escArt(CS.opt.scIdx||0);   /* 场景美术按册主题，不能用旁白序号 */
   const cv=$('cscanvas'), W=cv.width, H=cv.height, t=CS.t, ts=Date.now()*.001;
   let bi=0, acc=0;
   for(;bi<script.length-1;bi++){ if(t<acc+script[bi].d) break; acc+=script[bi].d; }
@@ -3641,17 +3642,17 @@ function csDrawBeats(script, si){
   }else if(beat.m==='after'){
     const settle=Math.min(1,bt/60);
     shX+=(Math.random()-.5)*7*(1-settle); shY+=(Math.random()-.5)*7*(1-settle);
-    rot = si===1? .1*Math.min(1,bt/170) : Math.sin(ts*.9)*.012;
+    rot = ai===1? .1*Math.min(1,bt/170) : Math.sin(ts*.9)*.012;
   }
   c.save();
   c.translate(W/2,H/2); c.rotate(rot); c.translate(-W/2+shX,-H/2+shY);
   const cx=W/2, cy=H*.45;
   /* 每关第一视角实景 */
-  drawEnv(c, si, W, H, ts, beat, bt);
+  drawEnv(c, ai, W, H, ts, beat, bt);
   /* 灾变叠加 */
   if(beat.m==='after'){
     const pr=Math.min(1,bt/200);
-    if(si===1){
+    if(ai===1){
       const lvl=H-(H*.18+H*.4*pr);
       c.fillStyle='rgba(10,95,155,.62)';
       c.beginPath(); c.moveTo(0,H); c.lineTo(0,lvl);
@@ -3659,12 +3660,12 @@ function csDrawBeats(script, si){
       c.lineTo(W,H); c.closePath(); c.fill();
       c.font='30px serif'; c.fillText('🌊', (t*2)%W, lvl-6);
     }
-    if(si===2){
+    if(ai===2){
       const lg=c.createLinearGradient(0,H,0,H*.42);
       lg.addColorStop(0,'rgba(255,80,0,'+(.55*pr).toFixed(2)+')'); lg.addColorStop(1,'rgba(255,80,0,0)');
       c.fillStyle=lg; c.fillRect(0,0,W,H);
     }
-    if(si===0){
+    if(ai===0){
       const lg2=c.createRadialGradient(cx,cy+H*.08,6,cx,cy+H*.08,W*.24);
       lg2.addColorStop(0,'rgba(255,240,200,.5)'); lg2.addColorStop(1,'rgba(0,0,0,0)');
       c.fillStyle=lg2; c.fillRect(0,0,W,H);
@@ -3672,18 +3673,18 @@ function csDrawBeats(script, si){
       const reach=Math.min(1,bt/90);
       c.font='62px serif'; c.fillText('🫴', cx+W*.06, H*1.04-H*.2*reach);
     }
-    if(si===3){
+    if(ai===3){
       if(Math.random()<.08){ c.fillStyle='rgba(0,0,0,.55)'; c.fillRect(-40,-40,W+80,H+80); }
       const bx=(t*4)%(W+200)-100;
       const rl=c.createRadialGradient(bx,H*.3,10,bx,H*.3,180);
       rl.addColorStop(0,'rgba(255,40,40,.3)'); rl.addColorStop(1,'rgba(0,0,0,0)');
       c.fillStyle=rl; c.fillRect(0,0,W,H);
     }
-    if(si===4){
+    if(ai===4){
       c.fillStyle='rgba(165,125,75,.75)';
       for(let k=0;k<14;k++){ const y=((t*5+k*47)%H); c.fillRect((k*61)%W, y, 5,5); }
     }
-    if(si===5){
+    if(ai===5){
       const ang=t*.06;
       c.save(); c.translate(cx,H*.32); c.rotate(ang);
       const al=c.createLinearGradient(0,0,W*.5,0);
